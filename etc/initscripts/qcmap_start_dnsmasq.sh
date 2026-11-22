@@ -1,0 +1,139 @@
+#!/bin/sh
+DUMP_TO_KMSG=/dev/kmsg
+
+echo "Starting DNSMASQ SERVICE arg1: $1 agr2: ${type_inst} " > $DUMP_TO_KMSG
+
+if [ ${type_inst} == "vlan" ]; then
+    echo "launching dnsmasq for tpie vlan inst" > $DUMP_TO_KMSG
+    if [ ${#dhcp_option_force3} -ne 0 ];then
+      /usr/bin/dnsmasq --conf-file=${conf_file} \
+      --dhcp-leasefile=${dhcp_leasefile} \
+      --addn-hosts=${addn_hosts} \
+      --pid-file=${pid_file} \
+      --interface=${interface} \
+      --except-interface=lo \
+      -z \
+      --dhcp-range=${dhcp_range} \
+      --dhcp-hostsfile=${dhcp_hostsfile} \
+      --dhcp-option-force=${dhcp_option_force1} \
+      --dhcp-option-force=${dhcp_option_force2} \
+      --dhcp-option-force=${dhcp_option_force3} \
+      --dhcp-script=${dhcp_script}
+    elif [ ${#dhcp_option_force2} -ne 0 ];then
+      /usr/bin/dnsmasq --conf-file=${conf_file} \
+      --dhcp-leasefile=${dhcp_leasefile} \
+      --addn-hosts=${addn_hosts} \
+      --pid-file=${pid_file} \
+      --interface=${interface} \
+      --except-interface=lo \
+      -z \
+      --dhcp-range=${dhcp_range} \
+      --dhcp-hostsfile=${dhcp_hostsfile} \
+      --dhcp-option-force=${dhcp_option_force1} \
+      --dhcp-option-force=${dhcp_option_force2} \
+      --dhcp-script=${dhcp_script}
+    else
+      /usr/bin/dnsmasq --conf-file=${conf_file} \
+      --dhcp-leasefile=${dhcp_leasefile} \
+      --addn-hosts=${addn_hosts} \
+      --pid-file=${pid_file} \
+      --interface=${interface} \
+      --except-interface=lo \
+      -z \
+      --dhcp-range=${dhcp_range} \
+      --dhcp-hostsfile=${dhcp_hostsfile} \
+      --dhcp-option-force=${dhcp_option_force1} \
+      --dhcp-script=${dhcp_script}
+    fi
+elif [ ${type_inst} == "ip_passthrough" ]; then
+    echo "launching dnsmasq for type ippass inst" > $DUMP_TO_KMSG
+    if [ ${#dhcp_option_force3} -ne 0 ];then
+      /usr/bin/dnsmasq --conf-file=${conf_file} \
+      --dhcp-leasefile=${dhcp_leasefile} \
+      --addn-hosts=${addn_hosts} \
+      --pid-file=${pid_file} \
+      --interface=${interface} \
+      --except-interface=lo \
+      -z \
+      --dhcp-range=${dhcp_range1} \
+      --dhcp-hostsfile=${dhcp_hostsfile} \
+      --dhcp-option-force=${dhcp_option_force1} \
+      --dhcp-option-force=${dhcp_option_force2} \
+      --dhcp-option-force=${dhcp_option_force3} \
+      --dhcp-range=${dhcp_range2} \
+      --dhcp-script=${dhcp_script}
+    elif [ ${#dhcp_option_force2} -ne 0 ];then
+      /usr/bin/dnsmasq --conf-file=${conf_file} \
+      --dhcp-leasefile=${dhcp_leasefile} \
+      --addn-hosts=${addn_hosts} \
+      --pid-file=${pid_file} \
+      --interface=${interface} \
+      --except-interface=lo \
+      -z \
+      --dhcp-range=${dhcp_range1} \
+      --dhcp-hostsfile=${dhcp_hostsfile} \
+      --dhcp-option-force=${dhcp_option_force1} \
+      --dhcp-option-force=${dhcp_option_force2} \
+      --dhcp-range=${dhcp_range2} \
+      --dhcp-script=${dhcp_script}
+    else
+      /usr/bin/dnsmasq --conf-file=${conf_file} \
+      --dhcp-leasefile=${dhcp_leasefile} \
+      --addn-hosts=${addn_hosts} \
+      --pid-file=${pid_file} \
+      --interface=${interface} \
+      --except-interface=lo \
+      -z \
+      --dhcp-range=${dhcp_range1} \
+      --dhcp-hostsfile=${dhcp_hostsfile} \
+      --dhcp-option-force=${dhcp_option_force1} \
+      --dhcp-range=${dhcp_range2} \
+      --dhcp-script=${dhcp_script}
+    fi
+elif [ ${type_inst} == "sip_server" ]; then
+    /usr/bin/dnsmasq --conf-file=${conf_file} \
+    --interface=${interface} \
+    --except-interface=lo \
+    -z \
+    --resolv-file=${resolv_file} \
+    --dhcp-range=${dhcp_range} \
+    --dhcp-option=${dhcp_option} \
+    --dhcp-option-force=${dhcp_option_force}
+elif [ ${type_inst} == "relay" ]; then
+    /usr/bin/dnsmasq \
+    --interface=${interface} \
+    --except-interface=lo \
+    -z \
+    --dhcp-relay=${dhcp_relay} \
+    --dhcp-proxy
+elif [ ${type_inst} == "sta_br" ]; then
+    /usr/bin/dnsmasq \
+    --interface=${interface} \
+    --except-interface=lo \
+    -z \
+    --dhcp-relay=${dhcp_relay} \
+    --dhcp-proxy \
+    --dhcp-leasefile=${dhcp_leasefile}
+elif [ ${type_inst} == "cradle" ]; then
+    /usr/bin/dnsmasq \
+    --interface=${interface} \
+    --except-interface=lo \
+    -z \
+    --dhcp-relay=${dhcp_relay} \
+    --dhcp-proxy \
+    --dhcp-leasefile=${dhcp_leasefile}
+elif [ ${type_inst} == "ipv6_nat" ]; then
+    /usr/bin/dnsmasq --conf-file=${conf_file} \
+    --dhcp-leasefile=${dhcp_leasefile} \
+    --addn-hosts=${addn_hosts} \
+    --pid-file=${pid_file} \
+    --interface=${interface} \
+    --except-interface=lo \
+    -z \
+    --dhcp-range=${dhcp_range} \
+    --dhcp-range=${dhcp_range1} \
+    --dhcp-option=${dhcp_option} \
+    --dhcp-option-force=${dhcp_option_force} \
+    --dhcp-script=${dhcp_script}
+fi
+exit 0

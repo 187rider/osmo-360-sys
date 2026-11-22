@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# qwesd        init.d script to start the securemsm qwesd daemon
+#
+#Copyright (c) 2020 Qualcomm Technologies, Inc.
+#All Rights Reserved.
+#Confidential and Proprietary - Qualcomm Technologies, Inc.
+
+
+set -e
+
+soc_id=`cat /sys/devices/soc0/soc_id`
+
+if [[ "$soc_id" -ne "290" && "$soc_id" -ne "296" && "$soc_id" -ne "297" && "$soc_id" -ne "298" && "$soc_id" -ne "299" ]]; then
+    case "$1" in
+      start)
+            # Setting up qwes license store.
+            /etc/initscripts/qwes_license_store
+            echo -n "Starting qwesd daemon....: "
+            start-stop-daemon -S -b -a /usr/bin/qwesd
+            echo "done"
+            ;;
+      stop)
+            echo -n "Stoping qwesd daemon......: "
+            start-stop-daemon -K -n qwesd_daemon
+            echo "done"
+            ;;
+      restart)
+            $0 stop
+            $0 start
+            ;;
+      *)
+            echo "Usage qwesd { start | stop | restart}" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+exit 0

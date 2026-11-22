@@ -1,0 +1,1 @@
+/dev/sda8      /system_b		ext4	ro,discard,data=ordered				wait,latemount,formattable,nonremovable,force_format

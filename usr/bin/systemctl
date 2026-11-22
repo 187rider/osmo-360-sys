@@ -1,0 +1,37 @@
+#!/bin/sh
+init_name=`cat /proc/cmdline | grep aosp | wc -l`
+if [ "$init_name" == "0" ];then
+        echo "systemd $@" > /dev/kmsg
+        /bin/systemctl $@
+elif [ "$init_name" == "1" ];then
+        echo "aosp $@" > /dev/kmsg
+        pid_name=`cat /proc/$$/comm`
+        ppid_name=`cat /proc/$PPID/comm`
+        echo "<3>$0 $@ pid  is: $$, name is: $pid_name" >/dev/kmsg
+        echo "<3>$0 $@ ppid  is: $PPID, name is: $ppid_name" >/dev/kmsg
+
+        script_name=$(basename "$0")
+        if [ "$script_name" == "systemctl" ];then
+                cmd=$1
+                cmdline=`echo $@ | cut -d' ' -f2-`
+        else
+                cmd=$script_name
+                cmdline=`echo $@ | cut -d' ' -f1-`
+        fi
+
+        if [ "$cmd" == "start" ];then
+                /usr/bin/start $cmdline
+        elif [ "$cmd" == "stop" ];then
+                /usr/bin/stop $cmdline
+        elif [ "$cmd" == "restart" ];then
+                /usr/bin/restart $cmdline
+        elif [ "$cmd" == "reboot" ];then
+                /usr/bin/android_reboot $cmdline
+        elif [ "$cmd" == "poweroff" ];then
+                /usr/bin/android_reboot -p $cmdline
+        else
+                echo "<3>Not found $cmd in aosp, intput: systemctl $@" > /dev/kmsg
+        fi
+else
+        echo "<3>Unknown Init Type, systemctl $@ Fail" > /dev/kmsg
+fi

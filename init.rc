@@ -1,0 +1,811 @@
+on early-init
+    # Set init and its forked children's oom_adj.
+    write /proc/1/oom_score_adj 0
+    # limit the devkmsg to 40Hz, interval is 5s
+    write /proc/sys/kernel/devkmsg_ratelimit_burst 200
+    # Disable sysrq from keyboard
+    write /proc/sys/kernel/sysrq 0
+    # Allow up to 32K FDs per process
+    setrlimit 7 32768 32768
+    # set coredump size to unlimited
+    setrlimit 4 -1 -1
+    # Set the security context of /adb_keys if present.
+    # restorecon /adb_keys
+    # Set the security context of /postinstall if present.
+    # restorecon /postinstall
+    # Mount cgroup mount point for cpu accounting
+    # mount cgroup none /acct nodev noexec nosuid cpuacct
+    # mkdir /acct/uid
+    # root memory control cgroup, used by lmkd
+    # mkdir /dev/memcg 0700 root system
+    # mount cgroup none /dev/memcg nodev noexec nosuid memory
+    # app mem cgroups, used by activity manager, lmkd and zygote
+    # mkdir /dev/memcg/apps/ 0755 system system
+    # cgroup for system_server and surfaceflinger
+    # mkdir /dev/memcg/system 0550 system system
+
+    mkdir /run
+    mount tmpfs tmpfs /run
+
+    write /dev/kmsg "<3> [test] this is early-init"
+    start start_dji_system
+
+    # mount debugfs
+    mount debugfs debugfs /sys/kernel/debug
+    chmod 0755 /sys/kernel/debug
+
+    write /proc/sys/net/unix/max_dgram_qlen 600
+
+    # Mount binderfs
+    mkdir /dev/binderfs
+    mount binder binder /dev/binderfs
+    chmod 0755 /dev/binderfs
+
+    symlink /dev/binderfs/binder /dev/binder
+    symlink /dev/binderfs/hwbinder /dev/hwbinder
+    symlink /dev/binderfs/vndbinder /dev/vndbinder
+
+    chmod 0666 /dev/binderfs/hwbinder
+    chmod 0666 /dev/binderfs/binder
+    chmod 0666 /dev/binderfs/vndbinder
+
+    # basic network init
+    ifup lo
+    hostname localhost
+    domainname localdomain
+
+    wait /dev/.dji_system 600
+
+    write /dev/.coldboot_done "0"
+    write /dev/kmsg "<3> [test] end start_dji_system"
+
+on init
+    write /dev/kmsg "<3> [test] this is init"
+
+    write /dev/kmsg "<3> [test] start mount_all"
+    mount_all_ab /etc/pre_fstab
+    write /dev/kmsg "<3> [test] end mount_all"
+    start chroot_prepare
+    wait /dev/.chroot_prepare_done 600
+    # chroot to /system_a/ or /system_b/ is done inside chroot command
+    chroot
+    write /dev/kmsg "<3> chroot finished!"
+
+    # Linux's execveat() syscall may construct paths containing /dev/fd
+    # expecting it to point to /proc/self/fd
+    symlink /proc/self/fd /dev/fd
+
+    chmod 0755 /run
+    chmod 0755 /run/udev
+    mkdir /dev/disk/
+    mkdir /dev/disk/by-partlabel/
+    symlink ../../sda1  /dev/disk/by-partlabel/ssd
+    symlink ../../sda2  /dev/disk/by-partlabel/persist
+    symlink ../../sda3  /dev/disk/by-partlabel/misc
+    symlink ../../sda4  /dev/disk/by-partlabel/keystore
+    symlink ../../sda5  /dev/disk/by-partlabel/frp
+    symlink ../../sda6  /dev/disk/by-partlabel/art
+    symlink ../../sda7  /dev/disk/by-partlabel/system_a
+    symlink ../../sda8  /dev/disk/by-partlabel/system_b
+    symlink ../../sda9  /dev/disk/by-partlabel/factory_data
+    symlink ../../sda10 /dev/disk/by-partlabel/cali
+    symlink ../../sda11 /dev/disk/by-partlabel/blackbox
+    symlink ../../sda12 /dev/disk/by-partlabel/emulated
+    symlink ../../sda13 /dev/disk/by-partlabel/userdata
+    symlink ../../sda14 /dev/disk/by-partlabel/rawdump
+    symlink ../../sdb1  /dev/disk/by-partlabel/xbl_a
+    symlink ../../sdb2  /dev/disk/by-partlabel/xbl_config_a
+    symlink ../../sdb3  /dev/disk/by-partlabel/multiimgqti_a
+    symlink ../../sdb4  /dev/disk/by-partlabel/multiimgoem_a
+    symlink ../../sdb5  /dev/disk/by-partlabel/apdp
+    symlink ../../sdc1  /dev/disk/by-partlabel/xbl_b
+    symlink ../../sdc2  /dev/disk/by-partlabel/xbl_config_b
+    symlink ../../sdc3  /dev/disk/by-partlabel/multiimgqti_b
+    symlink ../../sdc4  /dev/disk/by-partlabel/multiimgoem_b
+    symlink ../../sdc5  /dev/disk/by-partlabel/apdpb
+    symlink ../../sdd2  /dev/disk/by-partlabel/cdt
+    symlink ../../sdd3  /dev/disk/by-partlabel/ddr
+    symlink ../../sde1  /dev/disk/by-partlabel/uefi_a
+    symlink ../../sde2  /dev/disk/by-partlabel/aop_a
+    symlink ../../sde3  /dev/disk/by-partlabel/aop_config_a
+    symlink ../../sde4  /dev/disk/by-partlabel/tz_a
+    symlink ../../sde5  /dev/disk/by-partlabel/hyp_a
+    symlink ../../sde6  /dev/disk/by-partlabel/modem_a
+    symlink ../../sde7  /dev/disk/by-partlabel/bluetooth_a
+    symlink ../../sde8  /dev/disk/by-partlabel/bw_secure_a
+    symlink ../../sde9  /dev/disk/by-partlabel/mdtp_a
+    symlink ../../sde10 /dev/disk/by-partlabel/abl_a
+    symlink ../../sde11 /dev/disk/by-partlabel/dsp_a
+    symlink ../../sde12 /dev/disk/by-partlabel/keymaster_a
+    symlink ../../sde13 /dev/disk/by-partlabel/boot_a
+    symlink ../../sde14 /dev/disk/by-partlabel/devcfg_a
+    symlink ../../sde15 /dev/disk/by-partlabel/qupfw_a
+    symlink ../../sde16 /dev/disk/by-partlabel/dtbo_a
+    symlink ../../sde17 /dev/disk/by-partlabel/uefisecapp_a
+    symlink ../../sde18 /dev/disk/by-partlabel/imagefv_a
+    symlink ../../sde19 /dev/disk/by-partlabel/shrm_a
+    symlink ../../sde20 /dev/disk/by-partlabel/cpucp_a
+    symlink ../../sde21 /dev/disk/by-partlabel/featenabler_a
+    symlink ../../sde22 /dev/disk/by-partlabel/qmcs
+    symlink ../../sde23 /dev/disk/by-partlabel/qweslicstore_a
+    symlink ../../sde24 /dev/disk/by-partlabel/xbl_ramdump_a
+    symlink ../../sde25 /dev/disk/by-partlabel/rticmpdata_a
+    symlink ../../sde26 /dev/disk/by-partlabel/uefi_b
+    symlink ../../sde27 /dev/disk/by-partlabel/aop_b
+    symlink ../../sde28 /dev/disk/by-partlabel/aop_config_b
+    symlink ../../sde29 /dev/disk/by-partlabel/tz_b
+    symlink ../../sde30 /dev/disk/by-partlabel/hyp_b
+    symlink ../../sde31 /dev/disk/by-partlabel/modem_b
+    symlink ../../sde32 /dev/disk/by-partlabel/bluetooth_b
+    symlink ../../sde33 /dev/disk/by-partlabel/bw_secure_b
+    symlink ../../sde34 /dev/disk/by-partlabel/mdtp_b
+    symlink ../../sde35 /dev/disk/by-partlabel/abl_b
+    symlink ../../sde36 /dev/disk/by-partlabel/dsp_b
+    symlink ../../sde37 /dev/disk/by-partlabel/keymaster_b
+    symlink ../../sde38 /dev/disk/by-partlabel/boot_b
+    symlink ../../sde39 /dev/disk/by-partlabel/devcfg_b
+    symlink ../../sde40 /dev/disk/by-partlabel/qupfw_b
+    symlink ../../sde41 /dev/disk/by-partlabel/dtbo_b
+    symlink ../../sde42 /dev/disk/by-partlabel/uefisecapp_b
+    symlink ../../sde43 /dev/disk/by-partlabel/imagefv_b
+    symlink ../../sde44 /dev/disk/by-partlabel/shrm_b
+    symlink ../../sde45 /dev/disk/by-partlabel/cpucp_b
+    symlink ../../sde46 /dev/disk/by-partlabel/featenabler_b
+    symlink ../../sde47 /dev/disk/by-partlabel/qweslicstore_b
+    symlink ../../sde48 /dev/disk/by-partlabel/xbl_ramdump_b
+    symlink ../../sde49 /dev/disk/by-partlabel/rticmpdata_b
+    symlink ../../sde50 /dev/disk/by-partlabel/devinfo
+    symlink ../../sde51 /dev/disk/by-partlabel/dip
+    symlink ../../sde52 /dev/disk/by-partlabel/splash
+    symlink ../../sde53 /dev/disk/by-partlabel/limits
+    symlink ../../sde54 /dev/disk/by-partlabel/limits-cdsp
+    symlink ../../sde55 /dev/disk/by-partlabel/toolsfv
+    symlink ../../sde56 /dev/disk/by-partlabel/logfs
+    symlink ../../sde57 /dev/disk/by-partlabel/storsec
+    symlink ../../sde58 /dev/disk/by-partlabel/uefivarstore
+    symlink ../../sde59 /dev/disk/by-partlabel/secdata
+    symlink ../../sde60 /dev/disk/by-partlabel/vm-data
+    symlink ../../sde61 /dev/disk/by-partlabel/mdcompress
+    symlink ../../sde62 /dev/disk/by-partlabel/connsec
+    symlink ../../sde63 /dev/disk/by-partlabel/tzsc
+    symlink ../../sde64 /dev/disk/by-partlabel/spunvm
+    symlink ../../sde65 /dev/disk/by-partlabel/xbl_sc_test_mode
+    symlink ../../sde66 /dev/disk/by-partlabel/xbl_sc_logs
+    symlink ../../sdf2  /dev/disk/by-partlabel/modemst1
+    symlink ../../sdf3  /dev/disk/by-partlabel/modemst2
+    symlink ../../sdf4  /dev/disk/by-partlabel/fsg
+    symlink ../../sdf5  /dev/disk/by-partlabel/fsc
+
+on late-init
+    write /dev/kmsg "<3> [test] this is late-init"
+
+    start udevd
+    # many service depend on leprop, so advance it as early as possible
+    start leprop
+    start persist-prop
+    start start_dji_second
+
+    mkdir /dev/shm
+    mount tmpfs tmpfs /dev/shm nosuid nodev
+    mount tmpfs tmpfs /sys/fs/cgroup rw nosuid nodev noexec
+    mount tmpfs tmpfs /tmp rw nosuid nodev
+    mount tmpfs tmpfs /var/volatile
+    mount tmpfs tmpfs /var/cache
+    mount tmpfs tmpfs /var/spool
+    mount tmpfs tmpfs /var/lib
+    mkdir /tmp/logfs
+
+    # Create cgroup mount points for process groups
+    mkdir /sys/fs/cgroup/cpuctl
+    mount cgroup none /sys/fs/cgroup/cpuctl nodev noexec nosuid cpu
+    # mount -t cgroup -o nodev,noexec,nosuid,cpu none /sys/fs/cgroup/cpuctl
+
+    mount_all_ab /etc/post_fstab
+
+    # mount overlay filesystem
+    mkdir /overlay
+    mkdir /overlay/data
+    mkdir /overlay/etc
+    mkdir /overlay/cache
+    mkdir /overlay/usr
+    mkdir /overlay/usr/share
+    mkdir /overlay/.data-work
+    mkdir /overlay/.etc-work
+    mkdir /overlay/.cache-work
+    mkdir /overlay/.usr-share-work
+    mount_all /etc/overlay_fstab
+    chmod 0755 /etc
+    chmod 0755 /data
+    chmod 0755 /cache
+
+    # create directory for generating tombstones
+    mkdir /data/tombstones
+    mkdir /data/anr
+
+    start logd
+    start dji_perload_so
+    # advanced ktop to detect boot performance problem
+    start dji_ktop
+
+    wait /dev/.dji_second 600
+
+    start systemd-related
+    start perf-hal-service
+    start storage-service
+    start irsc_util
+    start qrtr_ns
+    # change sysctl.conf to init.rc command
+    start systemd-sysctl
+
+    start tombstoned
+
+    start servicemanager
+    start qmmf-server
+    start cam_log_dump
+    start dji_camera3
+
+    start late_load_ko
+    start touch
+    start init_display
+    start gui
+
+    # init_audio.service
+    start boot_adsp_cdsp
+    start start_usb
+
+    start random-seed
+    start ab-updater
+    start adsprpcd
+    start adsprpcd-audio
+    start busybox-syslog
+    start cdsprpcd
+    start data-init
+    start dji_sw_uav
+    start gstd
+    trigger init_minidump
+    start irqbalance
+    trigger sscrpcd
+    start cnss_daemon
+    start cnss_daemon_w
+    start start_ftm
+    start thermal-engine
+    start time_daemon
+    start zram_setup
+    start dji_wireless
+
+    trigger init_usb_and_adbd
+    start coredump_mon
+    start dji_blackbox
+    start date_to_kmsg
+    start save_system_log
+    start dji_bluetooth
+    start dji_charger
+    start dji_config
+    start dji_ftpd
+    start dji_gimbal
+    start dji_hms
+    start dji_http_server
+    start dji_kmsg
+    start dji_media_server
+    start dji_upgrade
+    start save_gui_log
+    start save_update_log
+    start dji_system
+    start dji_amt
+    trigger start_qseecomd
+    start QCMAP
+    start dji_sec
+    start lefbe
+    start sfsconfig
+    start wlan_init
+    start init_mss
+    start pdmapper
+    start chg-policy
+    start dnsmasq
+    start dji_network
+    trigger start_qwesd
+    start rmt_storage
+    start stability_tools
+    start log_clear
+    start pulseaudio
+    start dji_asr
+    start dji_io_monitor
+    start dji_utop
+    start line_chart
+    start console
+    start process_tomb
+
+on property:sys.powerctl=*
+    powerctl ${sys.powerctl}
+
+on property:perf_service.start=1
+    start init_post_boot
+
+on start_qseecomd
+    exec /bin/sleep 4
+    start qseecomd
+
+on charger
+    mkdir /tmp/charger_dir
+    write /tmp/charger "this is charger"
+    start console
+
+on init_usb_and_adbd
+    wait /dev/.start_usb 600
+
+on init_minidump
+    write /sys/kernel/dload/dload_mode mini
+    write /sys/kernel/dload/emmc_dload 1
+    exec /bin/sh /usr/bin/getminidump.sh
+
+on sscrpcd
+    chown system system /data/persist/sensors
+    chown system system /sys/power/wake_lock
+    chown system system /sys/power/wake_unlock
+    chown system system /dev/dma_heap/
+    start sensorspd
+
+on start_qwesd
+    exec /bin/sh /etc/initscripts/qwes_license_store
+    exec /bin/sh /etc/initscripts/create_qwes_ipc
+    start qwesd
+
+service boot_adsp_cdsp /bin/sh /usr/bin/boot_dsp.sh
+    class main
+    oneshot
+    user root
+
+service start_usb /bin/sh /usr/bin/start_usb.sh
+    setenv adbd_params "0.2 n 10"
+    class main
+    oneshot
+    user root
+
+service adbd /bin/sh /usr/bin/launch_adbd_aosp_init.sh
+    class main
+    user root
+
+service random-seed /lib/systemd/systemd-random-seed load
+    class main
+    oneshot
+    user root
+
+service usb_bulk_raw_06 /bin/sh /usr/bin/usb_bulk_raw_06.sh
+    class core
+    user root
+
+service usb_bulk_raw /usr/bin/usb_bulk_raw
+    class core
+    user root
+
+service usb_bulk_raw_01 /bin/sh /usr/bin/usb_bulk_raw_01.sh
+    class core
+    user root
+
+service usb_bulk_raw_04 /bin/sh /usr/bin/usb_bulk_raw_04.sh
+    class core
+    user root
+
+service usb_bulk_raw_05 /bin/sh /usr/bin/usb_bulk_raw_05.sh
+    class core
+    user root
+
+service setup_usb /bin/sh /bin/setup_usb.sh
+    disabled
+    oneshot
+
+service ansys_time /usr/bin/python /usr/bin/ansys_boot_time.py all 1
+    disabled
+    user root
+
+service udevd /sbin/udevd
+    class main
+    user root
+
+service dji_perload_so /usr/bin/dji_preload_so /usr/bin/preload_so.conf
+    class main
+    user root
+    oneshot
+
+service irsc_util /usr/bin/irsc_util /etc/sec_config
+    class main
+    user root
+    oneshot
+
+service qrtr_ns /usr/bin/qrtr-ns
+    class main
+    user root
+
+service systemd-related /bin/sh /usr/bin/start_systemd_related.sh
+    class main
+    user root
+    oneshot
+
+service systemd-sysctl /lib/systemd/systemd-sysctl
+    class main
+    user root
+    oneshot
+
+service start_dji_system /bin/sh /bin/start_dji_system.sh
+    class main
+    user root
+    oneshot
+
+service chroot_prepare /bin/sh /bin/start_chroot_prepare.sh
+    class main
+    user root
+    oneshot
+
+service start_dji_second /bin/sh /usr/bin/start_dji_system_2.sh
+    class main
+    user root
+    oneshot
+
+service leprop /sbin/leprop-service
+    class main
+    user root
+
+service adsprpcd /usr/bin/adsprpcd
+    class main
+    user root
+
+service adsprpcd-audio /usr/bin/adsprpcd audiopd
+    class main
+    user root
+
+service ab-updater /bin/sh /usr/bin/ab_updater.sh
+    class main
+    user root
+    oneshot
+
+service busybox-syslog /etc/initscripts/syslog start
+    class main
+    user root
+    oneshot
+
+service cam_log_dump /usr/bin/cam_log_dump.sh
+    class main
+    user root
+
+service cdsprpcd /usr/bin/cdsprpcd
+    class main
+    user root
+
+service data-init /etc/initscripts/data-init
+    class main
+    user root
+    oneshot
+
+service dji_sw_uav /usr/bin/dji_sw_uav
+    class main
+    user root
+
+service gstd /usr/bin/gstd -a 0.0.0.0
+    class main
+    user root
+    oneshot
+
+service hibernate-util /usr/bin/hibernateutility
+    class main
+    user root
+
+service ip6tables /usr/sbin/ip6tables-restore -w -- /etc/iptables/ip6tables.rules
+    class main
+    user root
+    oneshot
+
+service iptables /usr/sbin/iptables-restore -w -- /etc/iptables/iptables.rules
+    class main
+    user root
+    oneshot
+
+service irqbalance /usr/bin/msm-irqbalance -f /etc/msm_irqbalance.conf
+    class main
+    user root
+
+service servicemanager /usr/bin/servicemanager
+    class main
+    user root
+    oneshot
+
+service tombstoned /usr/bin/tombstoned
+    class main
+    user root
+    socket tombstoned_crash seqpacket 0666 root root
+    socket tombstoned_intercept seqpacket 0666 root root
+    socket tombstoned_java_trace seqpacket 0666 root root
+
+service sensorspd /usr/bin/sscrpcd sensorspd
+    class main
+    user root
+
+service cnss_daemon /usr/sbin/cnss_daemon -n -dd
+    class main
+    user root
+    oneshot
+
+service cnss_daemon_w /usr/sbin/cnss_daemon_w -i pci0 -n -dd
+    class main
+    user root
+    oneshot
+
+service start_ftm /etc/initscripts/ftm.init start
+    class main
+    user root
+    oneshot
+
+service storage-service /usr/bin/storage-service
+    class main
+    user root
+    setenv LD_PRELOAD "libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service thermal-engine /usr/bin/thermal-engine
+    class main
+    user root
+
+service time_daemon /usr/bin/time_daemon
+    class main
+    user root
+
+service zram_setup /sbin/zram-setup start
+    class main
+    user root
+    setenv SWAP_MEMTOTAL_PCT ""
+    oneshot
+
+service dji_wireless /usr/bin/dji_wireless_mic
+    class main
+    user root
+    setenv LD_PRELOAD "libdcam_hook.so:libqcom_adapter.so:libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service console /bin/sh
+    class core
+    console
+    disabled
+    user root
+    group root
+    setenv HOSTNAME oq101
+    setenv PS1 "root@oq101:\w # "
+    setenv HOME /data
+
+service qmmf-server /usr/bin/qmmf-server
+    class main
+    user root
+    setenv LD_LIBRARY_PATH "/usr/lib/camera/components/:/usr/lib/camera/:/usr/lib/hw"
+    setenv XDG_RUNTIME_DIR "/run/user/root/"
+    setenv WAYLAND_DISPLAY "wayland-1"
+    setenv LD_PRELOAD "libqcom_adapter.so:libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+    onrestart restart dji_camera3
+
+service init_display /etc/initscripts/init_qti_display start
+    class main
+    user root
+    oneshot
+
+service gui /usr/bin/dji_gui_on_disp0
+    class main
+    user root
+    setenv WAYLAND_DISPLAY "wayland-1"
+    setenv XDG_RUNTIME_DIR "/run/user/root"
+    setenv LD_PRELOAD "libqcom_adapter.so:libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service persist-prop /sbin/persist-prop.sh
+    class main
+    user root
+    oneshot
+
+service dji_camera3 /bin/sh /usr/bin/start_dji_camera3.sh
+    class main
+    user root
+    setenv XDG_RUNTIME_DIR "/run/user/root/"
+    setenv WAYLAND_DISPLAY "wayland-1"
+    setenv ADSP_LIBRARY_PATH "/system/etc/ML/third_party"
+    setenv LD_LIBRARY_PATH "/usr/lib/"
+    setenv LD_PRELOAD "libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service late_load_ko /bin/sh /usr/bin/start_late_load_ko.sh
+    class main
+    user root
+    oneshot
+
+service coredump_mon /usr/bin/coredump_monitor -p /blackbox/system/coredump -i 5 -n 10 -s 500
+    class main
+    user root
+
+service dji_blackbox /usr/bin/dji_blackbox
+    class main
+    user root
+    setenv LD_PRELOAD "libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service date_to_kmsg /bin/sh /usr/bin/date_to_kmsg.sh
+    class main
+    user root
+
+service dji_bluetooth /usr/bin/dji_bluetooth_service
+    class main
+    user root
+
+service dji_charger /usr/bin/dji_charger
+    class main
+    user root
+
+service dji_config /usr/bin/dji_config_store
+    class main
+    user root
+
+service dji_ftpd /usr/bin/dji_ftpd
+    class main
+    user root
+
+service dji_gimbal /usr/bin/dji_gimbal_fusion
+    class main
+    user root
+
+service dji_hms /usr/bin/dji_hms
+    class main
+    user root
+
+service dji_http_server /usr/bin/dji_http_server -D -f /system/etc/http/lighttpd.conf
+    class main
+    user root
+
+service dji_kmsg /usr/bin/dji_kmsg -l 10M -d /blackbox/system/ -n 16
+    class main
+    user root
+
+service dji_media_server /usr/bin/dji_media_server
+    class main
+    user root
+
+service dji_system /usr/bin/dji_sys
+    class main
+    user root
+
+service dji_upgrade /usr/bin/dji_upgrade
+    class main
+    user root
+
+service perf-hal-service /usr/bin/perf-hal.service.sh
+    class main
+    user root
+
+service qseecomd /bin/sh /usr/bin/start_qseecomd.sh
+    class main
+    user root
+
+service save_gui_log /usr/bin/save_gui_log.sh
+    class main
+    user root
+
+service save_system_log /usr/bin/save_system_log.sh
+    class main
+    user root
+
+service save_update_log /usr/bin/save_upgrade_log.sh
+    class main
+    user root
+
+service dji_amt /usr/bin/dji_amt
+    class main
+    user root
+
+service diag-router /usr/bin/diag-router
+    class main
+    user root
+
+service QCMAP /usr/bin/QCMAP_ConnectionManager /etc/data/mobileap_cfg.xml d
+    class main
+    user root
+    oneshot
+
+service dji_sec /usr/bin/dji_sec
+    class main
+    user root
+
+service lefbe /sbin/lefbeservice start ext4
+    class main
+    user root
+    oneshot
+
+service sfsconfig /etc/initscripts/sfs_config
+    class main
+    user root
+    oneshot
+
+service wlan_init /etc/initscripts/wlan init-start
+    class main
+    user root
+    oneshot
+
+service init_mss /sbin/init_mss
+    class main
+    user root
+
+service pdmapper /usr/bin/pdmappersvc
+    class main
+    user root
+
+service alsa-restore /usr/sbin/alsactl restore
+    class main
+    user root
+    oneshot
+
+service chg-policy /usr/bin/chg-policy
+    class main
+    user root
+    oneshot
+
+service dnsmasq /etc/initscripts/dnsmasq start
+    class main
+    user root
+    oneshot
+
+service dji_network /usr/bin/dji_network
+    class main
+    user root
+    setenv LD_PRELOAD "libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service touch /etc/initscripts/start_touch_le start
+    class main
+    user root
+    oneshot
+
+service qwesd /usr/bin/qwesd
+    class main
+    user root
+
+service rmt_storage /sbin/rmt_storage
+    class main
+    user root
+
+service stability_tools /usr/bin/stability_tools.sh
+    class main
+    user root
+    oneshot
+
+service log_clear /usr/bin/unified_log_clear.sh
+    class main
+    user root
+    oneshot
+
+service line_chart /usr/bin/performance_line_chart.sh
+    class main
+    user root
+    oneshot
+
+service dji_asr /usr/bin/dji_asr
+    class main
+    user root
+    setenv LD_PRELOAD "libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service init_post_boot /etc/init.post_boot.sh
+    class main
+    user root
+    oneshot
+
+service pulseaudio /bin/sh /usr/bin/pulseaudio.sh
+    class main
+    user root
+    setenv LD_PRELOAD "libdebuggerd_handler_core.so:libdebuggerd_handler_fallback.so"
+
+service dji_io_monitor /usr/bin/io_monitor.sh
+    class main
+    user root
+
+service dji_ktop /usr/bin/start_dji_ktop.sh
+    class main
+    user root
+
+service dji_utop /usr/bin/start_dji_utop.sh
+    class main
+    user root
+
+service logd /sbin/logd
+    socket logd stream 0666 logd logd
+    socket logdr seqpacket 0666 logd logd
+    socket logdw dgram 0222 logd logd
+
+service process_tomb /usr/bin/process_tombstones.sh
+    class main
+    user root
+    oneshot

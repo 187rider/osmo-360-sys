@@ -1,0 +1,217 @@
+#!/bin/sh
+# [TC] 2023-10-11, artur.qin, patch id: 317521, LC-USB-add-usb-tsserail-function-1-2
+# [DJI] 2024-05-07, squidwood.xu, patch id:42926, ENH: Modify ffs's malloc method to static malloc
+# [DJI] 2024-05-30, squidwood.xu, patch id:43898, FIX: usb may die when adb run and disconnect
+# [DJI] 2024-11-08, brandon.hao, patch id:52850, ENH: replace adbd restart method in aosp_init
+# [DJI] 2024-12-10, brandon.hao, patch id:54761, ENH: standardize shell script conditional judgment
+# [DJI] 2025-02-21, brandon.hao, patch id:59485, ENH: change wait adbd ready method by poll ep2
+# [DJI] 2025-02-26, brandon.hao, patch id:59935, ENH: change adbd service restart always
+# [TC MODIFIED_BY_DJI_START] LC-USB-add-usb-tsserail-function-1-2
+#
+# Copyright (c) 2014,2017-2021, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived from
+#       this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE DISCLAIMED.  IN NO
+# EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+echo "Switching to composition number 0x8007 bulk"  > /dev/kmsg
+LOCK_FILE="/tmp/usb_bind_in_progress"
+RETRY_CNT=5
+INTERVAL=0.5
+WAIT_DRIVER_STABLE=0.5
+
+if [ "$1" = "y" ]; then
+	num="1"
+else
+	num="0"
+fi
+
+if [ "$#" -ge 2 ]; then
+	delay=$2
+else
+	delay="0"
+fi
+
+if [ "$#" -ge 3 ]; then
+	from_adb=$3
+else
+	from_adb="n"
+fi
+
+if [ -f /sys/class/android_usb/android$num/enable ]; then
+	configfs_supported="n"
+else
+	configfs_supported="y"
+fi
+
+# [DJI MODIFIED_BY_DJI_START] ENH: change wait adbd ready method by poll ep2
+check_ffs_adb_ep() {
+	timeout=0
+	while :
+	do
+		sleep 0.2
+		if [ -e /dev/usb-ffs/adb/ep2 ]; then
+			echo "adb ep2 ready" > /dev/kmsg
+			break
+		else
+			echo "adb ep2 not ready" > /dev/kmsg
+		fi
+
+		if [ "$timeout" -ge 10 ]; then
+			echo "adb ep2 not ready, please check" > /dev/kmsg
+			break
+		fi
+
+		timeout=`expr $timeout + 1`
+	done
+}
+# [DJI MODIFIED_BY_DJI_END] ENH: change wait adbd ready method by poll ep2
+
+run_non_configfs() {
+	if [ $from_adb = "n" ]
+	then
+		pkill adbd
+	fi
+	echo 0 > /sys/class/android_usb/android$num/enable
+	echo 901D > /sys/class/android_usb/android$num/idProduct
+	echo 05C6 > /sys/class/android_usb/android$num/idVendor
+	echo diag > /sys/class/android_usb/android0/f_diag/clients
+	echo diag,adb > /sys/class/android_usb/android$num/functions
+	echo 1 > /sys/class/android_usb/android$num/remote_wakeup
+	sleep $delay
+	echo 1 > /sys/class/android_usb/android$num/enable
+	if [ $from_adb = "n" ]
+	then
+		/sbin/launch_adbd start
+	fi
+}
+
+run_configfs() {
+	try_cnt=1
+	while [ $try_cnt -le $RETRY_CNT ]; do
+		if [ -f "$LOCK_FILE" ]; then
+			echo "usb composition switching" > /dev/kmsg
+			sleep $INTERVAL
+		else
+			break
+		fi
+		try_cnt=$((try_cnt + 1))
+	done
+
+	if [ $try_cnt -eq $RETRY_CNT ]; then
+		echo "usb composition 8007 set failed" > /dev/kmsg
+		exit 1
+	fi
+
+	# [DJI MODIFIED_BY_DJI_START] ENH: standardize shell script conditional judgment
+	if [ "$(cat /sys/kernel/config/usb_gadget/g1/configs/c.1/strings/0x409/configuration)" = "BULK_ADB" ]; then
+	# [DJI MODIFIED_BY_DJI_END] ENH: standardize shell script conditional judgment
+		echo "USB composition already 8007, skip" > /dev/kmsg
+		exit 0
+	# [DJI MODIFIED_BY_DJI_START] ENH: standardize shell script conditional judgment
+	else
+		echo "USB composition fail to get configuration BULK_ADB" > /dev/kmsg
+		# [DJI MODIFIED_BY_DJI_END] ENH: standardize shell script conditional judgment
+	fi
+
+	echo start > /tmp/usb_bind_in_progress
+	if [ $from_adb = "n" ]
+	then
+		# [DJI MODIFIED_BY_DJI_START] ENH: replace adbd restart method in aosp_init
+		if [ $(cat /proc/cmdline | awk -F 'rdinit=' '{print $2}' | awk -F '/' '{print $NF}') = "aosp_init" ]; then
+			echo "adbd restart in aosp_init" > /dev/kmsg
+			# [DJI MODIFIED_BY_DJI_START] ENH: change adbd service restart always
+			restart adbd
+			# [DJI MODIFIED_BY_DJI_END] ENH: change adbd service restart always
+		else
+			echo "adbd restart in systemd" > /dev/kmsg
+			# [DJI MODIFIED_BY_DJI_START] FIX: usb may die when adb run and disconnect
+			systemctl restart adbd
+			# [DJI MODIFIED_BY_DJI_END] FIX: usb may die when adb run and disconnect
+		fi
+		# [DJI MODIFIED_BY_DJI_END] ENH: replace adbd restart method in aosp_init
+		# [DJI MODIFIED_BY_DJI_START] ENH: change wait adbd ready method by poll ep2
+		check_ffs_adb_ep
+		# [DJI MODIFIED_BY_DJI_END] ENH: change wait adbd ready method by poll ep2
+	fi
+	cd /sys/kernel/config/usb_gadget/g1
+	rm os_desc/c* 2> /dev/null
+	rm configs/c*/f* 2> /dev/null
+	rmdir configs/c.2/strings/* configs/c.3/strings/* 2> /dev/null
+	rmdir configs/c.2 configs/c.3 2> /dev/null
+
+	echo 0x2ca3 > idVendor
+	echo 0x0025 > idProduct
+	echo 0xEF > bDeviceClass
+	echo 0x02 > bDeviceSubClass
+	echo 0x01 > bDeviceProtocol
+	echo "BULK_ADB" > configs/c.1/strings/0x409/configuration
+	# [DJI MODIFIED_BY_DJI_START] ENH: Modify ffs's malloc method to static malloc
+	echo 65536 > functions/ffs.bulk4/maxpacket
+	# [DJI MODIFIED_BY_DJI_END] ENH: Modify ffs's malloc method to static malloc
+	ln -s functions/ffs.adb configs/c.1/f1
+	ln -s functions/ffs.bulk configs/c.1/f2
+	ln -s functions/ffs.bulk1 configs/c.1/f3
+	ln -s functions/ffs.bulk5 configs/c.1/f4
+	ln -s functions/ffs.bulk4 configs/c.1/f5
+	echo 0x80 > configs/c.1/bmAttributes
+
+	echo "binding UDC with Gadget..." $1
+	echo $1 > UDC
+	if [ $? -eq 0  ]; then
+		echo "switch 8007 executed successfully" > /dev/kmsg
+	else
+		echo "switch 8007 executed fail" > /dev/kmsg
+		echo "" > configs/c.1/strings/0x409/configuration
+	fi
+
+	cd /
+	sleep $WAIT_DRIVER_STABLE
+	rm -f /tmp/usb_bind_in_progress
+}
+
+target=`source /sbin/usb/target`
+
+if [ $configfs_supported = "y" ]; then
+	i=1
+	while [ $i -lt 2 ]
+	do
+		udcname=`ls -1 /sys/class/udc | grep -v dummy_udc | head -n 1`
+		if [ -n "$udcname" ]; then
+			break
+		fi
+
+		echo "UDC not found sleep for 1 sec\n"
+		sleep 1
+		i=$((i+1))
+	done
+
+	if [ -z "$udcname" ]; then
+		echo "UDC didn't come up, won't be able to connect to adbd" > /dev/kmsg
+		exit 1
+	fi
+
+	run_configfs $udcname &
+else
+	run_non_configfs &
+fi
+
+# [TC MODIFIED_BY_DJI_END] LC-USB-add-usb-tsserail-function-1-2

@@ -1,0 +1,34 @@
+# Copyright (c) 2024 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+
+#We require this qseecomd init service to mark a hard dependecy on
+#all the prequisites , specially on dmabuf where we need assurity
+#that it would start qseecomd after this all prerequisites would be done.
+#Also, we can't use "AFTER" tag for dmabuf because of special character ","
+#in name's of dma buf, which is being treated as seperator in service file.
+
+#Also before jumping to this method we already tried 3 popular method's :
+#i.e using .conf, udev rules and execstartpre but those method's only marking
+#soft dependecies and not providing assurance to start qseecomd
+#after prerequisite check and created timing issue's in past.
+
+[Unit]
+Description=Qseecomd init service serving all prerequisites require to start qseecomd
+BindsTo=dev-smcinvoke.device
+After=dev-smcinvoke.device leprop.service
+Wants=leprop.service
+
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=+/bin/chown -R root:system /dev/dma_heap/qcom,qseecom-ta
+ExecStart=+/bin/chmod -R 0660 /dev/dma_heap/qcom,qseecom-ta
+ExecStart=+/bin/chown -R root:system /dev/dma_heap/qcom,qseecom
+ExecStart=+/bin/chmod -R 0660 /dev/dma_heap/qcom,qseecom
+
+[Install]
+WantedBy=multi-user.target

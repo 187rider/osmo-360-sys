@@ -1,0 +1,22 @@
+# [DJI] 2023-11-27, eason.yang, patch id: 37892, NEW: add for dji connect perf-hal
+# Copyright (c) 2022 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=Perf Hal Service
+SourcePath=/usr/bin/perf-hal.service.sh
+#[DJI MODIFIED_BY_DJI_START] ENH: dji_camera3 connect perf-hal
+After=dji_camera3.service
+#[DJI MODIFIED_BY_DJI_END] ENH: dji_camera3 connect perf-hal
+
+[Service]
+User=root
+Group=root
+Restart=always
+RemainAfterExit=yes
+ExecStart=/usr/bin/perf-hal.service.sh
+
+[Install]
+WantedBy=multi-user.target

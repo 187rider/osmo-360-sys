@@ -1,0 +1,8 @@
+/etc/tmpfiles.d	040755
+/etc/udev/rules.d/msm-audio-node.rules	0100644
+/etc/tmpfiles.d/init-audio.conf	0100644
+/lib/systemd/system/init_audio.service	0100644
+/etc/udev	040755
+/lib/systemd/system/sysinit.target.wants	040755
+/lib/systemd/system/sysinit.target.wants/init_audio.service	0120777	/lib/systemd/system/init_audio.service
+/etc/udev/rules.d	040755

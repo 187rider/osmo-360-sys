@@ -1,0 +1,17 @@
+# Copyright (c) 2023 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+
+[Unit]
+Description=Utility services for Hibernation
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/bin/hibernateutility
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=hibernateservice
+
+[Install]
+WantedBy=multi-user.target

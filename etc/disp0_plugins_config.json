@@ -1,0 +1,37 @@
+{
+    "plugins_configs":[
+        {
+            "creator_func_name":"gui_lpc_proxy_create",
+            "plugin":"/usr/lib/libgui_lpc_proxy.so",
+            "parameter":[
+                "host_id_offset=0;",
+                "publisher_status=on;",
+                "register_callback=true;"
+            ]
+        },
+        {
+            "creator_func_name":"gui_image_loader_create",
+            "plugin":"/usr/lib/libgui_image_loader.so",
+            "parameter":[
+                "image_loader_id=1;"
+            ]
+        },
+        {
+            "creator_func_name":"wireless_mic_proxy_create",
+            "plugin":"/usr/lib/libgui_wireless_mic.so",
+            "parameter":[
+                "key_code=137;",
+                "key_type=1;",
+                "key_path=/dev/input/event0;"
+            ]
+        },
+        {
+            "creator_func_name":"gui_virtual_key_proxy_create",
+            "plugin":"/usr/lib/libgui_virtual_key_proxy.so",
+            "parameter":[
+                "QS_key_code=357;",
+                "QS_key_type=1;"
+            ]
+        }
+    ]
+}

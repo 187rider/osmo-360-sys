@@ -1,0 +1,116 @@
+
+check_output="61165568 sda
+8 sda1
+102400 sda2
+1024 sda3
+512 sda4
+512 sda5
+512 sda6
+1782580 sda7
+1782580 sda8
+32768 sda9
+65536 sda10
+3887104 sda11
+2916352 sda12
+50286948 sda13
+101888 sda14
+204800 sda15
+8192 sdb
+3584 sdb1
+300 sdb2
+32 sdb3
+32 sdb4
+256 sdb5
+8192 sdc
+3584 sdc1
+300 sdc2
+32 sdc3
+32 sdc4
+256 sdc5
+32768 sdd
+104 sdd1
+128 sdd2
+1024 sdd3
+1216512 sde
+5120 sde1
+512 sde2
+512 sde3
+4096 sde4
+8192 sde5
+204800 sde6
+6144 sde7
+4096 sde8
+32768 sde9
+1024 sde10
+65536 sde11
+512 sde12
+98304 sde13
+128 sde14
+80 sde15
+24576 sde16
+2048 sde17
+2048 sde18
+128 sde19
+1024 sde20
+128 sde21
+30720 sde22
+256 sde23
+2048 sde24
+52 sde25
+5120 sde26
+512 sde27
+512 sde28
+4096 sde29
+8192 sde30
+204800 sde31
+6144 sde32
+4096 sde33
+32768 sde34
+1024 sde35
+65536 sde36
+512 sde37
+98304 sde38
+128 sde39
+80 sde40
+24576 sde41
+2048 sde42
+2048 sde43
+128 sde44
+1024 sde45
+128 sde46
+256 sde47
+2048 sde48
+52 sde49
+4 sde50
+1024 sde51
+33424 sde52
+4 sde53
+4 sde54
+1024 sde55
+8192 sde56
+128 sde57
+512 sde58
+28 sde59
+33424 sde60
+20480 sde61
+128 sde62
+128 sde63
+32768 sde64
+64 sde65
+128 sde66
+32768 sdf
+104 sdf1
+3072 sdf2
+3072 sdf3
+3072 sdf4
+128 sdf5"
+
+command_output=$(cat /proc/partitions | busybox grep -v mmcblk | busybox awk '{ print $3, $4 }' | busybox grep sd)
+
+if [ "$check_output" = "$command_output" ]; then
+    echo "Output is the same as expected"
+	exit 0
+else
+    echo "error:Output and expectations differ"
+	exit 1
+fi

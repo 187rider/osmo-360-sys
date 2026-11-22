@@ -1,0 +1,71 @@
+#! /bin/sh
+# [TC] 2023-09-14, artur.qin, patch id: 214967, System-Storage-change-sd-card-mount-point-add-ufs-pa
+# [TC MODIFIED_BY_DJI_START] System-Storage-change-sd-card-mount-point-add-ufs-pa
+destdir=/mnt/media_rw/sd
+# [TC MODIFIED_BY_DJI_END] System-Storage-change-sd-card-mount-point-add-ufs-pa
+
+umount_partition()
+{
+        if grep -qs "^/dev/$1 " /proc/mounts ; then
+                umount -lf "${destdir}";
+        fi
+}
+
+mount_partition()
+{
+        if [ ! -d "${destdir}" ]; then
+        # [TC] 2023-09-05, artur.qin, patch id: 214967, System-Storage-change-sd-card-mount-point-add-ufs-pa
+        # [TC MODIFIED_BY_DJI_START] System-Storage-change-sd-card-mount-point-add-ufs-pa
+            mkdir -p "${destdir}"
+        # [TC MODIFIED_BY_DJI_END] System-Storage-change-sd-card-mount-point-add-ufs-pa
+        fi
+
+        # Checking if sepolicy is enabled and if enabled, then mount sd-card with user "root" and group "sdcard" with proper umask permissions so that non-root applications can access sdcard by adding to "sdcard" group.
+        if [[ ! -f /etc/selinux/config ]]; then
+            mount -t auto "/dev/$1" "${destdir}" -o uid=0,gid=1015,umask=002,nodev,noexec,nosuid
+        else
+            if ! mount -t auto "/dev/$1" "${destdir}" -o uid=0,gid=1015,umask=002,context=system_u:object_r:sdcard_t:s0,nodev,noexec,nosuid; then
+                    # failed to mount
+                    exit 1
+            fi
+        fi
+}
+
+check_if_boot_dev()
+{
+                ret_val=`cat /proc/cmdline | grep "androidboot.bootdevice" |wc -l`
+                if  [ $ret_val -ne 0 ]; then
+                    boot_dev_list=`cat /proc/cmdline | awk '{ for ( n=1; n<=NF; n++ ) if($n ~ "androidboot.bootdevice") print $n }' | awk '{split($0,a, "=");print a[2]}'`
+                    boot_dev=`echo $boot_dev_list | awk '{print $NF}'`
+                    real_sysfs_path=`realpath /sys/class/block/$1`
+                    ret_val=`echo $real_sysfs_path | grep /sys/devices/ | grep $boot_dev | wc -l`
+                fi
+                echo $ret_val
+}
+
+
+create_symlink()
+{
+                real_sysfs_path=`realpath /sys/class/block/$1`
+                partition_name=`cat $real_sysfs_path/uevent | awk '{ for ( n=1; n<=NF; n++ ) if($n ~ "PARTNAME") print $n }' | awk '{split($0,a, "=");print a[2]}'`
+                mkdir -p /dev/block/bootdevice/by-name/
+                partition_name=/dev/block/bootdevice/by-name/$partition_name
+                target_dev=/dev/$1
+                ln -s $target_dev $partition_name
+}
+
+#case "${ACTION}" in
+#add|"")
+#        result=`check_if_boot_dev $1`
+#        if [ $result -eq 1 ]; then
+#                 create_symlink $1 &
+#        else
+#                 umount_partition ${1}
+#                 mount_partition ${1}
+#        fi
+#        ;;
+#remove)
+#        umount_partition ${1}
+#        ;;
+#esac
+

@@ -1,0 +1,20 @@
+# Copyright (c) 2023 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+
+[Unit]
+Description=Service for hibernation entry and hibernation notifications
+After=hibernate-utility.service
+
+[Service]
+User=hibernateuser
+Group=hibernateuser
+Environment=DISPLAY=":0"
+Environment=DBUS_SESSION_BUS_ADDRESS="unix:path=/run/dbus/system_bus_socket"
+ExecStart=/usr/bin/hibernate
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=hibernateservice
+
+[Install]
+WantedBy=multi-user.target

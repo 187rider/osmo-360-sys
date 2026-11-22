@@ -1,0 +1,20 @@
+# [DJI] 2023-11-22, boxiang.hou, patch id: 37789, enable fulldump by default
+# [DJI] 2024-07-11, boxiang.hou, enable minidump by default
+# Copyright (c) 2023 Thundersoft Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Thundersoft Technologies, Inc.
+#
+
+[Unit]
+Description=minidump service
+
+[Service]
+#[DJI MODIFIED_BY_DJI_START] enable minidump by default
+ExecStartPre=/bin/sh -c 'echo mini > /sys/kernel/dload/dload_mode'   ##echo full could stop this service
+ExecStartPre=/bin/sh -c 'echo 1 > /sys/kernel/dload/emmc_dload'
+#[DJI MODIFIED_BY_DJI_END] enable minidump by default
+ExecStart=/bin/sh /usr/bin/getminidump.sh
+
+[Install]
+WantedBy=multi-user.target
+

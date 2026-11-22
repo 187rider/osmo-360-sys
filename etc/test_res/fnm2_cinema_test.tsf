@@ -1,0 +1,12 @@
+#
+# camera setting file
+#
+# @ for empty string
+[dcf]
+    dir_no = 0
+    file_no = 0
+    dir_mode = DCF_ST_DMF_RESET
+    file_mode = DCF_ST_DMF_SERIAL
+    camera_index = 65
+    next_reel_no = 1
+    next_loop_code = 1

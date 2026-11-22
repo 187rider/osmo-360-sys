@@ -1,0 +1,46 @@
+{
+    "version":               "EW.PLATFORM.DISP.CFG.VERSION_0_0",
+    "ew_package_version":    "EW.PLATFORM.SOFT.VERSION_11_00",
+    "lcdc":                  0,
+    "gui_width":             576,
+    "gui_height":            576,
+    "screen_orientation":    0,
+    "app_orientation":       0,
+    "dynamic_rotation":      0,
+    "display_timing":       "DEFAULT",
+    "pixel_format":         "DUSS_PIXFMT_ARGB8_I32",
+    "lcd_display_format":   "DUSS_PIXFMT_ARGB8_I32",
+    "port":                 "DUSS_DISP_PORT_DSI",
+    "plane":                "DUSS_DISP_PLANE_GRAP0",
+    "composer":             "weston",
+    "trigger_update":        true,
+    "watchdog_enable":       true,
+    "video_receiver_config": {
+        "enable":           true,
+        "boc_client_name":  "share_stream_0"
+    },
+    "plane_blend": {
+        "bld_enable":       true,
+        "glb_alpha_enable": false,
+        "glb_alpha":        255,
+        "blending_order":   2,
+        "blend_hoffset":    0,
+        "blend_voffset":    0
+    },
+    "crop_info": {
+        "crop_enable":      true,
+        "x":                0,
+        "y":                0,
+        "width":            314,
+        "height":           556
+    },
+    "sysmode_perf": {
+        "enable":           true,
+        "high_perf":        1000,
+        "low_perf":         0,
+        "hold_time_ms":     3000,
+        "request_threshold_ms":  15,
+        "release_threshold_ms":  5,
+        "host_id":         "1C00"
+    }
+}

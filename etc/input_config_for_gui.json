@@ -1,0 +1,57 @@
+{
+    "version":      "EW.PLATFORM.INPUT.CFG.VERSION_0_0",
+    "device_num":   6,
+    "third_party_enable": true,
+    "device_list": [
+        {
+            "name": "cyttsp5_mt",
+            "type": "TOUCH"
+        },
+        {
+            "name": "gpio-keys",
+            "type": "KEY"
+        },
+        {
+            "name": "cyttsp5_btn",
+            "type": "KEY"
+        },
+        {
+            "name": "cyttsp5_proximity",
+            "type": "KEY"
+        },
+        {
+            "name": "dongle_key",
+            "type": "KEY"
+        },
+        {
+            "name": "pmic_pwrkey",
+            "type": "KEY"
+        },
+        {
+            "name": "wireless_mic_key",
+            "type": "KEY"
+        },
+        {
+            "name": "DJI Technology Co., Ltd. Wireless Microphone RX",
+            "type": "KEY"
+        },
+        {
+            "name": "virtual_key",
+            "type": "KEY"
+        }
+    ],
+    "key_mapping": [
+        {"LinuxKey":  358, "EwKey":  126 },
+        {"LinuxKey":  357, "EwKey":  121 },
+        {"LinuxKey":  355, "EwKey":  123 },
+        {"LinuxKey":  143, "EwKey":  121 },
+        {"LinuxKey":  115, "EwKey":  117 },
+        {"LinuxKey":  124, "EwKey":  124 },
+        {"LinuxKey":  137, "EwKey":  123 },
+        {"LinuxKey":  140, "EwKey":  125 }
+    ],
+    "large_object_filter": {
+        "enable":            true,
+        "value":             31
+    }
+}

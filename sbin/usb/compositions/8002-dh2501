@@ -1,0 +1,203 @@
+#!/bin/sh
+# [TC] 2023-09-18, artur.qin, patch id: 302609, USB-add-usb-composition-8002-Mass_storage-adb
+# [DJI] 2024-12-10, brandon.hao, patch id:54761, ENH: standardize shell script conditional judgment
+# [DJI] 2025-02-14, brandon.hao, patch id:58893, ENH: change adbd restart way in aosp init
+# [DJI] 2025-02-21, brandon.hao, patch id:59485, ENH: change wait adbd ready method by poll ep2
+# [DJI] 2025-02-26, brandon.hao, patch id:59935, ENH: change adbd service restart always
+# [DJI] 2025-03-03, brandon.hao, patch id:60386, ENH: remove launch adbd sleep to save enum time
+# [TC MODIFIED_BY_DJI_START] USB-add-usb-composition-8002-Mass_storage-adb
+#
+# Copyright (c) 2013-2014,2017,2020-2021, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived from
+#       this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE DISCLAIMED.  IN NO
+# EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# DESCRIPTION: ADB + Mass Storage
+
+echo "Switching to composition number 0x8002" > /dev/kmsg
+LOCK_FILE="/tmp/usb_bind_in_progress"
+RETRY_CNT=3
+INTERVAL=0.5
+WAIT_DRIVER_STABLE=0.5
+
+if [ "$1" = "y" ]; then
+	num="1"
+else
+	num="0"
+fi
+
+if [ "$#" -ge 2 ]; then
+	delay=$2
+else
+	delay="0"
+fi
+
+if [ "$#" -ge 3 ]; then
+	from_adb=$3
+else
+	from_adb="n"
+fi
+
+white_card=$(getprop persist.whiteboxdebug)
+if [ $white_card -eq 0 ]; then
+	white_card="n"
+else
+	white_card="y"
+fi
+
+if [ -f /sys/class/android_usb/android$num/enable ]; then
+	configfs_supported="n"
+else
+	configfs_supported="y"
+fi
+
+# [DJI MODIFIED_BY_DJI_START] ENH: change wait adbd ready method by poll ep2
+check_ffs_adb_ep() {
+	timeout=0
+	while :
+	do
+		sleep 0.2
+		if [ -e /dev/usb-ffs/adb/ep2 ]; then
+			echo "adb ep2 ready" > /dev/kmsg
+			break
+		else
+			echo "adb ep2 not ready" > /dev/kmsg
+		fi
+
+		if [ "$timeout" -ge 10 ]; then
+			echo "adb ep2 not ready, please check" > /dev/kmsg
+			break
+		fi
+
+		timeout=`expr $timeout + 1`
+	done
+}
+# [DJI MODIFIED_BY_DJI_END] ENH: change wait adbd ready method by poll ep2
+
+run_configfs() {
+	try_cnt=1
+	while [ $try_cnt -le $RETRY_CNT ]; do
+		if [ -f "$LOCK_FILE" ]; then
+			echo "usb composition switching" > /dev/kmsg
+			sleep $INTERVAL
+		else
+			break
+		fi
+		try_cnt=$((try_cnt + 1))
+	done
+
+	if [ $try_cnt -eq $RETRY_CNT ]; then
+		echo "usb composition 8002 set failed" > /dev/kmsg
+		exit 1
+	fi
+
+	# [DJI MODIFIED_BY_DJI_START] ENH: standardize shell script conditional judgment
+	if [ "$(cat /sys/kernel/config/usb_gadget/g1/configs/c.1/strings/0x409/configuration)" = "ADB_MS" ]; then
+	# [DJI MODIFIED_BY_DJI_END] ENH: standardize shell script conditional judgment
+		echo "USB composition already 0x8002, skip" > /dev/kmsg
+		exit 0
+	# [DJI MODIFIED_BY_DJI_START] ENH: standardize shell script conditional judgment
+	else
+		echo "USB composition fail to get configuration ADB_MS" > /dev/kmsg
+		# [DJI MODIFIED_BY_DJI_END] ENH: standardize shell script conditional judgment
+	fi
+
+	echo start > /tmp/usb_bind_in_progress
+	if [ $from_adb = "n" ]
+	then
+		# [DJI MODIFIED_BY_DJI_START] ENH: change adbd restart way in aosp init
+		if [ $(cat /proc/cmdline | awk -F 'rdinit=' '{print $2}' | awk -F '/' '{print $NF}') = "aosp_init" ]; then
+			echo "adbd restart in aosp_init" > /dev/kmsg
+			# [DJI MODIFIED_BY_DJI_START] ENH: change adbd service restart always
+			restart adbd
+			# [DJI MODIFIED_BY_DJI_END] ENH: change adbd service restart always
+		else
+			# [DJI MODIFIED_BY_DJI_START] ENH: remove launch adbd sleep to save enum time
+			echo "adbd restart in systemd" > /dev/kmsg
+			systemctl restart adbd
+			# [DJI MODIFIED_BY_DJI_END] ENH: remove launch adbd sleep to save enum time
+		fi
+		# [DJI MODIFIED_BY_DJI_END] ENH: change adbd restart way in aosp init
+		# [DJI MODIFIED_BY_DJI_START] ENH: change wait adbd ready method by poll ep2
+		check_ffs_adb_ep
+		# [DJI MODIFIED_BY_DJI_END] ENH: change wait adbd ready method by poll ep2
+	fi
+	cd /sys/kernel/config/usb_gadget/g1
+	rm os_desc/c* 2> /dev/null
+	rm configs/c*/f* 2> /dev/null
+	rmdir configs/c.2/strings/* configs/c.3/strings/* 2> /dev/null
+	rmdir configs/c.2 configs/c.3 2> /dev/null
+	if [ $white_card = "y" ]
+	then
+		echo 0x2222 > idVendor
+		echo "Xtra" > strings/0x409/manufacturer
+	else
+		echo 0x0506 > idVendor
+		echo "DJI" > strings/0x409/manufacturer
+	fi
+	echo 0x8002 > idProduct
+	echo "ADB_MS" > configs/c.1/strings/0x409/configuration
+	ln -s functions/ffs.adb configs/c.1/f1
+	ln -s functions/mass_storage.0 configs/c.1/f2
+
+	echo 0xA0 > configs/c.1/bmAttributes
+
+	echo "binding UDC with Gadget..." $1
+	echo $1 > UDC
+	if [ $? -eq 0  ]; then
+		echo "switch 8002 executed successfully" > /dev/kmsg
+	else
+		echo "switch 8002 executed fail" > /dev/kmsg
+		echo "" > configs/c.1/strings/0x409/configuration
+	fi
+	sleep $WAIT_DRIVER_STABLE
+	cd /
+	rm -f /tmp/usb_bind_in_progress
+}
+
+target=`source /sbin/usb/target`
+case $target in
+	 *kalama* )
+		if [ $configfs_supported = "y" ]; then
+			i=1
+			while [ $i -lt 2 ]
+			do
+				udcname=`ls -1 /sys/class/udc | grep -v dummy_udc | head -n 1`
+				if [ -n "$udcname" ]; then
+					break
+				fi
+				echo "UDC not found sleep for 1 sec\n"
+				sleep 1
+				i=$((i+1))
+			done
+			if [ -z "$udcname" ]; then
+				echo "UDC didn't come up, won't be able to connect to adbd" > /dev/kmsg
+				exit 1
+			fi
+			echo "0x8002 composition is kalama ADB_MS, run_configfs" > /dev/kmsg
+		run_configfs $udcname &
+		fi
+		;;
+
+esac
+
+# [TC MODIFIED_BY_DJI_END] USB-add-usb-composition-8002-Mass_storage-adb

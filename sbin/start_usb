@@ -1,0 +1,498 @@
+#!/bin/sh
+# [TC] 2023-10-11, artur.qin, patch id: 317521, LC-USB-add-usb-tsserail-function-1-2
+# [TC] 2024-03-11, brandon.hao, patch id: 40603: ENH: uvc: change uvc to iso
+# [DJI] 2024-03-12, brandon.hao, patch id: 40748: ENH: uvc: set uvc name
+# [DJI] 2024-03-29, lei.si, patch id: 41440, set up usb and mstorage rate
+# [DJI] 2024-04-12, brandon.hao, patch id: 41975: ENH: uac: set uac name
+# [TC] 2024-04-13, squidwood.xu, patch id:42012, uvc add support h264
+# [DJI] 2024-06-11, squidwood.xu, patch id:44404, ENH: change ac204 enum product and manufacture into dji
+# [DJI] 2024-09-29, brandon.hao, patch id: 50751: ENH: UVC: improve mjpeg and h264 screen distortion issues
+# [DJI] 2024-10-09, brandon.hao, patch id: 50936: ENH: UVC: solve macos black screen with usb3.0
+# [DJI] 2024-10-15, bryant.wang, patch id: 51332: ENH: delete mass_storage.1
+# [DJI] 2024-11-15, brandon.hao, patch id:53300, ENH: add uvc 25fps enum
+# [DJI] 2025-01-07, brandon.hao, patch id:56415, ENH: set usb product config by different product sh
+# [DJI] 2025-01-27, brandon.hao, patch id:58031, ENH: adjust usb services boot order
+# [DJI] 2025-02-20, brandon.hao, patch id:59392, ENH: set msc lun by product
+# [DJI] 2025-03-20, brandon.hao, patch id:61736, ENH: config usb-storage delay_usb by product
+# [DJI] 2025-06-21, brandon.hao, patch id:69881, ENH: set peripheral before restart usb service
+#
+# Copyright (c) 2012-2015, 2018-2021, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived from
+#       this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE DISCLAIMED.  IN NO
+# EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#Changes from Qualcomm Innovation Center are provided under the following license:
+
+#Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+#SPDX-License-Identifier: BSD-3-Clause-Clear
+
+# Starts the USB Android Gadget.
+export KERNEL=`uname -r`
+export SOFTAP_W_DUN="N"
+export ANDROID_LOG_TAGS="*:d"
+export LS_COLORS="none"
+export USB_ROLE_SWITCH="N"
+LOCAL_ECHO=$(which echo)
+# [DJI MODIFIED_BY_DJI_START] ENH: set usb product config by different product sh
+source /usr/bin/usb_product_config.sh
+# [DJI MODIFIED_BY_DJI_END] ENH: set usb product config by different product sh
+
+usb_bind() {
+	timeout=0
+	while :
+	do
+		UDC=`ls -1 /sys/class/udc | head -n 1`
+		if [ ! -z $UDC ]; then
+			${LOCAL_ECHO} $UDC > /sys/kernel/config/usb_gadget/g1/UDC
+			break
+		fi
+		if [ "$timeout" -ge 25 ]; then
+			${LOCAL_ECHO} "No role switch notification. Enabling USB in debug mode" > /dev/kmsg
+			udcname=`ls -1 /sys/bus/platform/devices/ | grep ssusb | head -n 1`
+			${LOCAL_ECHO} peripheral > /sys/bus/platform/devices/${udcname}/mode
+			sleep 2
+			UDC=`ls -1 /sys/class/udc | head -n 1`
+			${LOCAL_ECHO} $UDC > /sys/kernel/config/usb_gadget/g1/UDC
+			break
+		fi
+		timeout=`expr $timeout + 1`
+		sleep 1
+	done
+}
+
+# [DJI MODIFIED_BY_DJI_START] adjust usb services boot order
+check_usb_ffs_ep() {
+	timeout=0
+	while :
+	do
+		if [ -e /dev/usb-ffs/bulk/ep2 ]; then
+			${LOCAL_ECHO} "bulk ready" > /dev/kmsg
+		fi
+
+		if [ -e /dev/ffs-diag/ep2 ]; then
+			${LOCAL_ECHO} "diag ready" > /dev/kmsg
+		fi
+
+		if [[ -e /dev/usb-ffs/bulk/ep2 && -e /dev/ffs-diag/ep2 ]]; then
+			break
+		fi
+
+		if [ "$timeout" -ge 5 ]; then
+			${LOCAL_ECHO} "bulk/diag not ready, please check" > /dev/kmsg
+			break
+		fi
+
+		timeout=`expr $timeout + 1`
+		sleep 0.2
+	done
+}
+# [DJI MODIFIED_BY_DJI_END] ENH: adjust usb services boot order
+
+case "$1" in
+  init)
+	# enable concurrent SoftAP and DUN
+	if [ -f /etc/data/usb/softap_w_dun ]
+	then
+		SOFTAP_W_DUN=`cat /etc/data/usb/softap_w_dun`
+	fi
+
+	# bail out from script if qcom_gadget is enabled and
+	# SoftAP with DUN is not enabled
+	enabled=`cat /sys/bus/platform/devices/qcom_gadget/enabled`
+	if [ "$enabled" == "Y" ]; then
+		if [ "$SOFTAP_W_DUN" == "N" ]; then
+			exit 0
+		else
+			${LOCAL_ECHO} "SOFTAP + DUN is enabled, disabling qcom_gadget" > /dev/kmsg
+			${LOCAL_ECHO} 0 > /sys/bus/platform/devices/qcom_gadget/enabled
+			if [ $(cat /proc/cmdline | grep -c "root=.*ubi\|mtd") -gt 0 ]; then
+				usb_qti_partition=`cat /proc/mtd | grep "usb_qti" | cut -d ":" -f1`
+				if [ "$usb_qti_partition" != "" ]; then
+					flash_erase -q /dev/$usb_qti_partition 0 4
+				fi
+			elif [ $(cat /proc/cmdline | grep -c "root=.*mmc") -gt 0 ]; then
+				if [ -e /dev/block/bootdevice/by-name/usb_qti ]; then
+					dd if=/dev/zero of=/dev/block/bootdevice/by-name/usb_qti
+				fi
+			fi
+		fi
+	fi
+
+	if [ -d /sys/class/android_usb/android0/f_ffs ]
+	then
+		${LOCAL_ECHO} adb > /sys/class/android_usb/android0/f_ffs/aliases
+	fi
+
+	# get soc platform to update product related information
+	if [ -f /sys/devices/soc0/hw_platform ]; then
+		socplatform=`cat /sys/devices/soc0/machine` 2> /dev/null
+		soc_hwplatform=`cat /sys/devices/soc0/hw_platform`
+		soc_subtypeid=`cat /sys/devices/soc0/platform_subtype_id`
+	else
+		socplatform=`cat /sys/devices/system/soc/soc0/machine` 2> /dev/null
+	fi
+	${LOCAL_ECHO} "soc:" $socplatform
+
+	# find serialno from cmdline
+	serialno=`cat /proc/cmdline | grep -o "androidboot.serialno=[A-Za-z0-9]*" | cut -d "=" -f2`
+	if [ "$serialno" == "" ]; then
+		${LOCAL_ECHO} "serialno not found with cmdline, use default"
+		serialno="12345678"
+	fi
+	${LOCAL_ECHO} "serialno:" $serialno
+
+	# try to mount configfs, and create instance of USB functions if it goes through
+	mount -t configfs none /sys/kernel/config
+	if [ -d /sys/kernel/config/usb_gadget ]; then
+		${LOCAL_ECHO} "Configuring the USB gadget using ConfigFS..."
+		cd /sys/kernel/config/usb_gadget
+		mkdir g1
+		cd g1
+		mkdir strings/0x409
+		mkdir configs/c.1
+		mkdir configs/c.1/strings/0x409
+		# [DJI MODIFIED_BY_DJI_START] set msc lun by product
+		config_msc_lun
+		# [DJI MODIFIED_BY_DJI_END] set msc lun by product
+		mkdir functions/ffs.adb
+		mkdir functions/ffs.bulk
+		mkdir functions/ffs.bulk1
+		mkdir functions/ffs.bulk4
+		mkdir functions/ffs.bulk5
+		mkdir functions/ffs.mtp
+		mkdir functions/diag.diag
+		mkdir functions/diag.diag_mdm
+		mkdir functions/cser.dun.0
+		mkdir functions/cser.nmea.1
+		# [TC MODIFIED_BY_DJI_START] LC-USB-add-usb-tsserail-function-1-2
+		mkdir functions/tsserial.0
+		# [TC MODIFIED_BY_DJI_END] LC-USB-add-usb-tsserail-function-1-2
+		mkdir functions/gser.0
+		mkdir functions/rmnet_bam.rmnet
+		mkdir functions/gsi.rmnet
+		mkdir functions/gsi.rndis
+		mkdir functions/gsi.ecm
+		mkdir functions/gsi.mbim
+		mkdir functions/gsi.rmnet.v2x
+		mkdir functions/gsi.dpl
+		mkdir functions/gsi.gps
+		mkdir functions/ncm.0
+		mkdir functions/qdss.qdss
+		mkdir functions/qdss.qdss_mdm
+		mkdir functions/qdss.qdss_sw
+		mkdir functions/uac1_legacy.uac1_legacy1
+		mkdir functions/uac1.uac1
+		mkdir functions/uac2.0
+		mkdir functions/uvc.0
+		mkdir functions/rndis.rndis
+		mkdir functions/ipc.ipc
+		mkdir functions/ecm.ecm
+		mkdir functions/ncm.0
+		mdkir functions/hid.usb0
+		mkdir functions/ccid.ccid
+		mkdir functions/rmnet_bam.rmnet_bam_dmux
+		mkdir functions/mbim.mbim
+
+		kernel_version=${KERNEL%%.*}
+		if [ "$kernel_version" -ge "5" ]; then
+			mkdir functions/ffs.diag
+		fi
+
+		if [ ! -s "/data/adb_devid" ]
+		then
+			echo $serialno > /data/adb_devid
+			sync
+		fi
+		echo $serialno > strings/0x409/serialnumber
+		# [DJI MODIFIED_BY_DJI_START] ENH: change ac204 enum product and manufacture into dji
+		echo "DJI" > strings/0x409/manufacturer
+		# [DJI MODIFIED_BY_DJI_END] ENH: change ac204 enum product and manufacture into dji
+		# [DJI MODIFIED_BY_DJI_START] ENH: set usb product config by different product sh
+		init_product_string
+		# [DJI MODIFIED_BY_DJI_END] ENH: set usb product config by different product sh
+		if [ -e functions/diag.diag/serial ]; then
+			${LOCAL_ECHO} "$serialno" > functions/diag.diag/serial
+		fi
+
+		# correct SELinux labels on new /dev nodes
+		if [ -x /sbin/restorecon ]
+		then
+			/sbin/restorecon /dev/at_usb0 /dev/at_usb1
+		fi
+
+		setprop sys.usb.configfs 1
+		cd /
+	fi
+
+	# [DJI MODIFIED_BY_DJI_START] ENH: set usb product config by different product sh
+	init_iProduct
+	# [DJI MODIFIED_BY_DJI_END] ENH: set usb product config by different product sh
+
+	# mount mtp functionfs
+	mkdir -p /dev/usb-ffs/mtp
+	mount -o uid=2000,gid=2000 -t functionfs mtp /dev/usb-ffs/mtp
+
+	# mount adb functionfs
+	mkdir -p /dev/usb-ffs/adb
+	mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
+
+	mkdir -p /dev/usb-ffs/bulk
+	mount -o uid=2000,gid=2000 -t functionfs bulk /dev/usb-ffs/bulk
+
+	mkdir -p /dev/usb-ffs/bulk1
+	mount -o uid=2000,gid=2000 -t functionfs bulk1 /dev/usb-ffs/bulk1
+
+	mkdir -p /dev/usb-ffs/bulk4
+	mount -o uid=2000,gid=2000 -t functionfs bulk4 /dev/usb-ffs/bulk4
+
+	mkdir -p /dev/usb-ffs/bulk5
+	mount -o uid=2000,gid=2000 -t functionfs bulk5 /dev/usb-ffs/bulk5
+
+	if [ -e /sys/kernel/config/usb_gadget/g1/functions/ffs.diag ]; then
+		mkdir -p /dev/ffs-diag
+		mount -o uid=system,gid=system,no_disconnect=1,rmode=0550,fmode=0660 -t functionfs diag /dev/ffs-diag
+	fi
+
+	mount -o remount,gid=5,mode=620 /dev/pts
+
+	case `source /sbin/usb/target` in
+		*9x15* )
+			# Nothing to do here for 9x15
+			;;
+		*9x25* )
+			${LOCAL_ECHO} "Unbind EHCI HSIC host device driver"
+			${LOCAL_ECHO} msm_hsic_host > /sys/bus/platform/drivers/msm_hsic_host/unbind
+			;;
+		*9x35* )
+			${LOCAL_ECHO} "Unbind EHCI HSIC host device driver"
+			${LOCAL_ECHO} f9a15000.hsic_host > /sys/bus/platform/drivers/msm_hsic_host/unbind
+			${LOCAL_ECHO} 1 > /sys/devices/virtual/android_usb/android0/f_rndis_qc/max_pkt_per_xfer
+			${LOCAL_ECHO} 3 > /sys/module/dwc3/parameters/bulk_ep_xfer_timeout_ms
+			;;
+		*8916* )
+			${LOCAL_ECHO} 9091 > /etc/usb/boot_hsusb_comp
+                        ;;
+		*9640* )
+			${LOCAL_ECHO} 16384 > /sys/module/g_android/parameters/rndis_dl_max_xfer_size
+			;;
+		*9650* )
+			${LOCAL_ECHO} 16384 > /sys/module/g_android/parameters/gsi_in_rndis_aggr_size
+			if [ -e /dev/mhi_ctrl ]; then
+				${LOCAL_ECHO} 901F > /etc/usb/boot_hsusb_comp
+			fi
+			;;
+		*sdx20* )
+			${LOCAL_ECHO} Y > /sys/module/libcomposite/parameters/enable_l1_for_hs
+			${LOCAL_ECHO} Y > /sys/module/dwc3/parameters/enable_dwc3_u1u2
+			if [ -e /dev/mhi_ctrl ]; then
+				${LOCAL_ECHO} 901F > /etc/usb/boot_hsusb_comp
+			fi
+			;;
+		*sxr2130* )
+			${LOCAL_ECHO} 9060 > /etc/usb/boot_hsusb_comp
+			;;
+		*sdxpoorwills* | *sdxprairie* )
+			if [ -e /dev/mhi_ctrl ]; then
+				${LOCAL_ECHO} 901F > /etc/usb/boot_hsusb_comp
+			fi
+			;;
+		*8909* | *8053* | *8017* | *qcs605* | *qcs40x* | *sa2150p* | *qcs610* )
+			${LOCAL_ECHO} 901D > /etc/usb/boot_hsusb_comp
+		        ;;
+		*sm8150* )
+			${LOCAL_ECHO} 901D > /etc/usb/boot_hsusb_comp
+			if [ -f /sys/bus/platform/devices/a600000.ssusb/mode ]; then
+				default_mode=`cat /sys/bus/platform/devices/a600000.ssusb/mode`
+				case "$default_mode" in
+				    "none")
+					${LOCAL_ECHO} peripheral > /sys/bus/platform/devices/a600000.ssusb/mode
+				    ;;
+				esac
+			fi
+		        ;;
+		*kalama* )
+			echo device > /sys/class/usb_role/a600000.ssusb-role-switch/role
+			# [DJI MODIFIED_BY_DJI_START] set up usb and mstorage rate
+			echo 1 > /sys/kernel/config/usb_gadget/g1/functions/mass_storage.0/lun.0/nofua
+			# [DJI MODIFIED_BY_DJI_END] set up usb and mstorage rate
+		        ;;
+		*sm8450p* )
+			if [ -f /sys/bus/platform/devices/a600000.ssusb/mode ]; then
+				default_mode=`cat /sys/bus/platform/devices/a600000.ssusb/mode`
+				case "$default_mode" in
+				    "none")
+					${LOCAL_ECHO} peripheral > /sys/bus/platform/devices/a600000.ssusb/mode
+				    ;;
+				esac
+			fi
+		        ;;
+		*sdxpinn* )
+			adbd_params="0 y"
+			if [ -d /sys/class/usb_role/a600000.ssusb-role-switch ]; then
+				USB_ROLE_SWITCH="Y"
+			fi
+			;;
+		*qrb5165* )
+			${LOCAL_ECHO} "Issue reset to internal usb hub"
+			if [ -f /sys/bus/usb/devices/2-1/authorized ]; then
+				${LOCAL_ECHO} 0 > /sys/bus/usb/devices/2-1/authorized
+				sleep 1
+				${LOCAL_ECHO} 1 > /sys/bus/usb/devices/2-1/authorized
+			fi
+			;;
+	esac
+
+	# [DJI MODIFIED_BY_DJI_START] ENH: adjust usb services boot order
+	# [DJI MODIFIED_BY_DJI_START] ENH: set usb product config by different product sh
+	if [ $(cat /proc/cmdline | awk -F 'rdinit=' '{print $2}' | awk -F '/' '{print $NF}') = "aosp_init" ]; then
+		echo "diag/bulk start in in aosp_init" > /dev/kmsg
+		/usr/bin/diag-router &
+		/usr/bin/usb_bulk_raw &
+		/usr/bin/usb_bulk_raw_01.sh &
+		/usr/bin/usb_bulk_raw_04.sh &
+		/usr/bin/usb_bulk_raw_05.sh &
+		/usr/bin/usb_bulk_raw_06.sh &
+	else
+		echo "diag/bulk restart in systemd" > /dev/kmsg
+		# ep not ready due to mount after the following service started when in uart cloesd scene
+		systemctl restart diag-router
+		/usr/bin/usb_bulk_raw &
+		/usr/bin/usb_bulk_raw_01.sh &
+		/usr/bin/usb_bulk_raw_04.sh &
+		/usr/bin/usb_bulk_raw_05.sh &
+		/usr/bin/usb_bulk_raw_06.sh &
+		# [DJI MODIFIED_BY_DJI_END] ENH: set usb product config by different product sh
+	fi
+	check_usb_ffs_ep
+	# [DJI MODIFIED_BY_DJI_END] ENH: adjust usb services boot order
+
+	# [DJI MODIFIED_BY_DJI_START] ENH: set usb product config by different product sh
+	init_uvc
+	init_uac
+	# [DJI MODIFIED_BY_DJI_END] ENH: set usb product config by different product sh
+	# [DJI MODIFIED_BY_DJI_START] ENH: config usb-storage delay_usb by product
+	config_usb_storage_delay_use
+	# [DJI MODIFIED_BY_DJI_END] ENH: config usb-storage delay_usb by product
+	#Initialize NCM configuration
+	if [ -d /sys/kernel/config/usb_gadget/g1/functions/ncm.0 ]; then
+		cd /sys/kernel/config/usb_gadget/g1/functions/ncm.0
+		${LOCAL_ECHO} 8000 > max_segment_size
+		${LOCAL_ECHO} WINNCM > os_desc/interface.ncm/compatible_id
+	fi
+
+	#Initialize RNDIS SW path configuration
+	if [ -d /sys/kernel/config/usb_gadget/g1/functions/rndis.rndis ]; then
+		cd /sys/kernel/config/usb_gadget/g1/functions/rndis.rndis
+		echo ef > class
+		echo 4 > subclass
+		echo 1 > protocol
+	fi
+
+	# enable adaptive for capture path
+	if [ -d /sys/kernel/config/usb_gadget/g1/functions/uvc.0 ]; then
+		${LOCAL_ECHO} adaptive > /sys/kernel/config/usb_gadget/g1/functions/uac2.0/c_sync
+	fi
+
+	# enable debug message
+	if [ -f /sbin/usb/debuger/default_debug ];
+	then
+		rm -rf /sbin/usb/debuger/statusFile
+		usb_debug -f on n /sbin/usb/debuger/default_debug
+	fi
+
+	# boot hsic composition:
+	if [ -d /sys/class/android_usb/android1 ]
+	then
+		pid=`cat /etc/usb/boot_hsic_comp`
+		# make 901D as default composition
+                if [ -z "$pid" ]
+		then
+                    pid="901D"
+		fi
+
+		/sbin/usb/compositions/$pid y
+		# let hsic compostion script run before starting hsusb
+		sleep 1
+	fi
+
+	# boot hsusb composition:
+	if [ -d /sys/class/android_usb/android0 ]
+	then
+		pid=`cat /etc/usb/boot_hsusb_comp`
+		# exit with success if device is in mhi mode
+		if [ "$pid" == "none" ]; then
+			exit 0
+		fi
+		# make 901D as default composition
+                if [ -z "$pid" ]
+		then
+                    pid="901D"
+		fi
+
+		# check if more than 1 argument is passed
+		if [ $# -gt 1 ]; then
+			# if second argument is n, do nothing
+			if [ $2 != 'n' ]; then
+				/sbin/usb/compositions/$pid n $adbd_params
+			fi
+		else
+			/sbin/usb/compositions/$pid n $adbd_params
+		fi
+
+		# targets with cable detection support on Modem might need
+		# more time for UDC to come up. So schedule a bind operation
+		# accordingly
+		udcname=`ls -1 /sys/class/udc | head -n 1`
+		if [ -z $udcname ] && [ "$USB_ROLE_SWITCH" == "Y" ]; then
+			usb_bind &
+		fi
+	fi
+	;;
+
+  start)
+	udcname=`ls -1 /sys/class/udc | head -n 1`
+	if [ -d /sys/kernel/config/usb_gadget ]; then
+		${LOCAL_ECHO} "Starting USB Android Gadget"
+		rm -f /tmp/usb_bind_in_progress
+		${LOCAL_ECHO} $udcname > /sys/kernel/config/usb_gadget/g1/UDC
+	fi
+	;;
+
+  stop)
+	if [ -d /sys/kernel/config/usb_gadget ]; then
+		${LOCAL_ECHO} "Stopping USB Android Gadget"
+		${LOCAL_ECHO} start > /tmp/usb_bind_in_progress
+		${LOCAL_ECHO} none > /sys/kernel/config/usb_gadget/g1/UDC
+	fi
+        ;;
+
+  restart)
+	${LOCAL_ECHO} "Restarting USB Android Gadget"
+	$0 stop
+	$0 start
+        ;;
+  *)
+        ${LOCAL_ECHO} "Usage usb { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+

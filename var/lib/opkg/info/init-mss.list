@@ -1,0 +1,5 @@
+/sbin/init_mss	0100755
+/etc/tmpfiles.d/init_mss.conf	0100644
+/lib/systemd/system/init_sys_mss.service	0100644
+/etc/udev/rules.d/init_mss.rules	0100644
+/lib/systemd/system/sysinit.target.wants/init_sys_mss.service	0120777	/lib/systemd/system/init_sys_mss.service

@@ -1,0 +1,17 @@
+{
+    "subscriber_topic_name": [
+        "upgrade_status",
+        "media_gui_uvc",
+        "cam_face",
+        "gui_debug_info",
+        "cam_imu_motion",
+        "cam_vot_info",
+        "temp_curve",
+        "ac103_accessory",
+        "cam_imu_calib_info",
+        "timecode_info",
+        "cam_video_param_v2",
+        "cam_image_effect",
+        "dual_pano_recording_ori"
+    ]
+}

@@ -1,0 +1,20 @@
+# Copyright (c) 2020-2023 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+
+[Unit]
+Description=sscrpcd Service
+SourcePath=/usr/bin/sscrpcd
+Requires=data.mount
+After=data.mount
+
+[Service]
+User=system
+Group=system
+AmbientCapabilities=CAP_BLOCK_SUSPEND
+Restart=always
+ExecStartPre=+/bin/chown -R system.system /data/persist/sensors /sys/power/wake_lock /sys/power/wake_unlock /dev/dma_heap/
+ExecStart=/usr/bin/sscrpcd sensorspd
+
+[Install]
+WantedBy=multi-user.target

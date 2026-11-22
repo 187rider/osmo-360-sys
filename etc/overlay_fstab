@@ -1,0 +1,3 @@
+overlay         /cache			overlay	lowerdir=/cache,upperdir=/overlay/cache,workdir=/overlay/.cache-work			wait,formattable,nonremovable
+overlay         /data 			overlay	lowerdir=/data,upperdir=/overlay/data,workdir=/overlay/.data-work			wait,formattable,nonremovable
+overlay         /etc 			overlay	lowerdir=/etc,upperdir=/overlay/etc,workdir=/overlay/.etc-work			wait,formattable,nonremovable

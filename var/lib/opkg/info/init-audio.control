@@ -1,0 +1,11 @@
+Package: init-audio
+Version: git-r5
+Description: init-audio version git-r5
+ Installing audio init script
+Section: base
+Priority: optional
+Maintainer: OE-Core Developers <openembedded-core@lists.openembedded.org>
+License: BSD-Source-Code
+Architecture: aarch64
+OE: init-audio
+Source: init-audio_git.bb

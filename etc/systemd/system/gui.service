@@ -1,0 +1,17 @@
+[Unit]
+Description= Main GUI Service
+SourcePath=/usr/bin/dji_gui_on_disp0
+Requires=servicemanager.service
+After=servicemanager.service init_display.service leprop.service
+
+[Service]
+Restart=always
+Environment="WAYLAND_DISPLAY=wayland-1"
+Environment="XDG_RUNTIME_DIR=/run/user/root"
+Environment="LD_PRELOAD=libqcom_adapter.so"
+ExecStart=/usr/bin/dji_gui_on_disp0
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

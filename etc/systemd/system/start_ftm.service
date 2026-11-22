@@ -1,0 +1,17 @@
+# Copyright (c) 2021 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=start ftm
+SourcePath=/etc/initscripts/ftm.init
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/initscripts/ftm.init start
+ExecStop=/etc/initscripts/ftm.init stop
+
+[Install]
+WantedBy=multi-user.target

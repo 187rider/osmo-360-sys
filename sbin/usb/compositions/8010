@@ -1,0 +1,129 @@
+#!/bin/sh
+# [TC] 2024-02-01, tianran.sun, patch id: 39601: ENH: config usb 8008 to support bulk function
+# [DJI] 2024-04-25, squidwood.xu, patch id: 40603: ENH: uvc: add uvc support in resigned device
+# [DJI] 2024-12-03, brandon.hao, patch id:54352, ENH: ensure usb composition switched mutually exclusive
+# [DJI] 2024-12-10, brandon.hao, patch id:54761, ENH: standardize shell script conditional judgment
+# [DJI] 2025-07-16, brandon.hao, patch id:71841, ENH: change msc and uvc scene usb vid to 2ca3
+# [DJI MODIFIED_BY_DJI_START] ENH: uvc: add uvc support in resigned device
+#
+# Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived from
+#       this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE DISCLAIMED.  IN NO
+# EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# DESCRIPTION: UVC
+
+echo "Switching to composition number 0x8010"  > /dev/kmsg
+# [DJI MODIFIED_BY_DJI_START] ENH: ensure usb composition switched mutually exclusive
+LOCK_FILE="/tmp/usb_bind_in_progress"
+RETRY_CNT=3
+INTERVAL=0.5
+WAIT_DRIVER_STABLE=0.5
+# [DJI MODIFIED_BY_DJI_END] ENH: ensure usb composition switched mutually exclusive
+
+if [ "$#" -ge 3 ]; then
+	from_adb=$3
+else
+	from_adb="n"
+fi
+
+run_configfs() {
+	# [DJI MODIFIED_BY_DJI_START] ENH: ensure usb composition switched mutually exclusive
+	try_cnt=1
+	while [ $try_cnt -le $RETRY_CNT ]; do
+		if [ -f "$LOCK_FILE" ]; then
+			echo "usb composition 8004 switching" > /dev/kmsg
+			sleep $INTERVAL
+		else
+			break
+		fi
+		try_cnt=$((try_cnt + 1))
+	done
+
+	if [ $try_cnt -eq $RETRY_CNT ]; then
+		echo "usb composition 8004 set failed" > /dev/kmsg
+		exit 1
+	fi
+	# [DJI MODIFIED_BY_DJI_END] ENH: ensure usb composition switched mutually exclusive
+
+	# [DJI MODIFIED_BY_DJI_START] ENH: standardize shell script conditional judgment
+	if [ "$(cat /sys/kernel/config/usb_gadget/g1/configs/c.1/strings/0x409/configuration)" = "DIAG_UAC2_UVC" ]; then
+	# [DJI MODIFIED_BY_DJI_END] ENH: standardize shell script conditional judgment
+		echo "USB composition already 0x8010, skip" > /dev/kmsg
+		exit 0
+	# [DJI MODIFIED_BY_DJI_START] ENH: standardize shell script conditional judgment
+	else
+		echo "USB composition fail to get configuration DIAG_UAC2_UVC" > /dev/kmsg
+		# [DJI MODIFIED_BY_DJI_END] ENH: standardize shell script conditional judgment
+	fi
+
+	echo start > /tmp/usb_bind_in_progress
+	if [ $from_adb = "n" ]
+	then
+		pkill adbd
+		# Give enough time to restart ADBD and open EP0 file node
+		sleep 1
+	fi
+	cd /sys/kernel/config/usb_gadget/g1
+	rm os_desc/c* 2> /dev/null
+	rm configs/c*/f* 2> /dev/null
+	rmdir configs/c.2/strings/* configs/c.3/strings/* 2> /dev/null
+	rmdir configs/c.2 configs/c.3 2> /dev/null
+	# [DJI MODIFIED_BY_DJI_START] ENH: change msc and uvc scene usb vid to 2ca3
+	echo 0x2ca3 > idVendor
+	# [DJI MODIFIED_BY_DJI_END] ENH: change msc and uvc scene usb vid to 2ca3
+	echo 0x8004 > idProduct
+	echo 0xEF > bDeviceClass
+	echo 0x02 > bDeviceSubClass
+	echo 0x01 > bDeviceProtocol
+	echo "DIAG_UAC2_UVC" > configs/c.1/strings/0x409/configuration
+	ln -s functions/ffs.diag configs/c.1/f1
+	ln -s functions/uac2.0 configs/c.1/f2
+	ln -s functions/uvc.0 configs/c.1/f3
+	echo 0x80 > configs/c.1/bmAttributes
+
+	echo "binding UDC with Gadget..." $1
+	echo $1 > UDC
+	if [ $? -eq 0  ]; then
+		echo "switch 8010 executed successfully" > /dev/kmsg
+	else
+		echo "switch 8010 executed fail" > /dev/kmsg
+		echo "" > configs/c.1/strings/0x409/configuration
+	fi
+	cd /
+	# [DJI MODIFIED_BY_DJI_START] ENH: ensure usb composition switched mutually exclusive
+	sleep $WAIT_DRIVER_STABLE
+	rm -f /tmp/usb_bind_in_progress
+	# [DJI MODIFIED_BY_DJI_END] ENH: ensure usb composition switched mutually exclusive
+}
+
+case `source /sbin/usb/target` in
+	*qcs605* | *qcs610* | *sxr2130* | *kalama* )
+		udcname=`ls -1 /sys/class/udc | head -n 1`
+		run_configfs $udcname &
+		;;
+	* )
+		echo "This composition is not supported"
+		;;
+esac
+
+# [DJI MODIFIED_BY_DJI_END] ENH: uvc: add uvc support in resigned device

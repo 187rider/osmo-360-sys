@@ -1,0 +1,98 @@
+#!/bin/sh -e
+
+if [ -z $1 ]
+then
+    echo "Should input root path"
+else
+    MOUNT_ROOT=$1
+    echo "root path ${MOUNT_ROOT}"
+fi
+
+TEST_DIR='fname_mgr_test_dir'
+
+# test_hal_storage -c "0 volume detach_pc"
+
+sleep 2
+echo $MOUNT_ROOT
+mkdir -p $MOUNT_ROOT
+
+cd $MOUNT_ROOT
+if [ $? -ne 0 ]
+then
+    echo "invalid input root path"
+    exit 1
+fi
+
+rm -rf $TEST_DIR
+
+mkdir -p $TEST_DIR
+cd $TEST_DIR
+
+CMDLINE=`cat /proc/cmdline`
+CMDLINE=`echo ${CMDLINE#*production_sn=}`
+CMDLINE=`echo ${CMDLINE%% *}`
+UNIQUE_CODE=`echo ${CMDLINE: 0-4: 4}`
+
+mkdir A001_OOOO01
+cd A001_OOOO01
+touch A001C0001_190101_OOOO01.MOV    #video 1
+cd ..
+
+mkdir D004_${UNIQUE_CODE}01
+cd D004_${UNIQUE_CODE}01
+touch D004C0001_190101_${UNIQUE_CODE}01.MOV    #video 2
+cd ..
+
+mkdir D100_${UNIQUE_CODE}01
+cd D100_${UNIQUE_CODE}01
+touch D100C0001_190101_${UNIQUE_CODE}01.MOV    #video 3
+touch D200C0002_190101_${UNIQUE_CODE}01.MOV
+touch D100C0003_190101_OOOO01.MOV
+touch D100C0004_190101_${UNIQUE_CODE}01.MOVX
+touch D100X0005_190101_${UNIQUE_CODE}01.MOV
+touch D100C0006_191301_${UNIQUE_CODE}01.MOV
+touch D100C0007_190001_${UNIQUE_CODE}01.MOV
+touch D100C0008_190132_${UNIQUE_CODE}01.MOV
+touch D100C0009_190100_${UNIQUE_CODE}01.MOV
+touch d100c0010_190101_${UNIQUE_CODE}01.mov    #video 4
+touch D100C0011_190101_${UNIQUE_CODE}02.mov
+touch D100C0012_190101_${UNIQUE_CODE}AB.mov
+touch D100C0013_190101_${UNIQUE_CODE}.mov
+cd ..
+
+mkdir E005_${UNIQUE_CODE}01
+
+mkdir F006_${UNIQUE_CODE}01
+cd F006_${UNIQUE_CODE}01
+for j in $(seq 1 9)
+do
+    touch "F006C000${j}_190101_${UNIQUE_CODE}01.MOV"    #video 5-13
+done
+for j in $(seq 0 8)
+do
+    touch "F006C999${j}_190101_${UNIQUE_CODE}01.MOV"    #video 14-22
+done
+cd ..
+
+mkdir Z006_${UNIQUE_CODE}01
+cd Z006_${UNIQUE_CODE}01
+touch Z006C0001_190101_${UNIQUE_CODE}01.JPG    #image 1
+touch Z006C0002_190101_${UNIQUE_CODE}01.RAW    #image 2
+touch Z006C0003_190101_${UNIQUE_CODE}01.DNG    #image 3
+touch Z006C0004_190101_${UNIQUE_CODE}01.THM
+touch Z006C0005_190101_${UNIQUE_CODE}01.SCR
+touch Z006C0006_190101_${UNIQUE_CODE}01.YTHM
+touch Z006C0007_190101_${UNIQUE_CODE}01.YSCR
+touch Z006C0008_190101_${UNIQUE_CODE}01.ACC
+touch Z006C0009_190101_${UNIQUE_CODE}01.SRT
+touch Z006C0010_190101_${UNIQUE_CODE}01.HTML    #image 4
+touch Z006C0011_190101_${UNIQUE_CODE}01.HTM
+touch Z006C0012_190101_${UNIQUE_CODE}01.JSON
+touch Z006C0013_190101_${UNIQUE_CODE}01.AIS
+cd ..
+
+mkdir Z999_${UNIQUE_CODE}01
+cd Z999_${UNIQUE_CODE}01
+touch Z999C9999_190101_${UNIQUE_CODE}01.MOV    #video 23
+
+cd ..

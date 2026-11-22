@@ -1,0 +1,319 @@
+#!/bin/sh
+# [TC] 2023-09-05, artur.qin, patch id: 215478, System-Storage-mount-userdata_a-and-userdata_b
+# [DJI] 2023-09-22, lei.si, patch id: 36507, logcat save system log to blackbox
+# [DJI] 2023-09-27, lei.si, patch id: 36561, enable log export to sdcard
+# [DJI] 2023-09-27, lei.si, patch id: 36895, enable dji_kmsg to save kmsg log
+# [DJI] 2023-10-09, lei.si, patch id: 36813, Mount blackbox_upgrade partition
+# [DJI] 2023-10-11, lei.si, patch id: 36828, export upgrade and gui log to sdcard
+# [DJI] 2023-11-21, fengbin.li, patch id: 37721, mkdir blackbox/audio for audio dump
+# [DJI] 2023-11-27, lei.si, patch id: 37922, set aging_test shell scripts
+# [DJI] 2023-11-30, lei.si, patch id: 38030, add busybox date-time to /dev/kmsg
+# [DJI] 2023-12-19, lei.si, patch id: 38467, mount blackbox_upgrade to sda11
+# [DJI] 2023-11-30, lei.si, patch id: 38372, Create emulated parition and add factory_data cali in blackbox
+# [DJI] 2024-01-05, david.yao, patch id: 39119, shorten dirty page writeback to 5s
+# [DJI] 2024-01-25, david.yao, patch id: 39556, uefi log to file support
+# [DJI] 2024-03-05, lei.si, patch id: , cp ver_info.txt to blackbox
+# [DJI] 2024-04-12, eugene.zhang, patch id: 42060, uefi log to file support 2
+# [DJI] 2024-04-12, morant.wang, patch id: , mkdir blackbox/system/utop for loading and memory data
+# [DJI] 2025-05-30, arthur.qin, patch id: 67608 , Fix log_clear error
+#==============================================================================
+# FILE: sfs_config
+#
+# DESCRIPTION:
+# create files and give permissions to the files and directories needed by
+# secure file system
+#
+# Copyright (c) 2017, 2022 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#==============================================================================
+# [DJI MODIFIED_BY_DJI_START] add busybox date-time to /dev/kmsg
+# set -e
+# [DJI MODIFIED_BY_DJI_END] add busybox date-time to /dev/kmsg
+
+soc_id=`cat /sys/devices/soc0/soc_id`
+
+# [DJI MODIFIED_BY_DJI_START] wait partition mounted before create dir
+wait_for_mount() {
+    local mount_point=$1
+    local timeout=$2
+    local count=0
+
+    while ! mount | grep "$mount_point "; do
+        usleep 50000  # 等待50毫秒
+        let "count=count+1"
+        if [ $count -eq $((timeout*20)) ]; then  # 50毫秒等待一次，所以超时时间需要乘以20
+            echo "Timeout: Partition $partition did not mount within $timeout seconds"
+            return 1
+        fi
+    done
+
+    echo "Partition $partition is mounted at $mount_point"
+    return 0
+}
+
+create_dir() {
+    local dir=$1
+
+    if [ ! -e "$dir" ]; then
+        # 如果目录不存在，则创建目录
+        mkdir -p "$dir"
+        chmod o+rwx $dir
+        echo "Directory $dir created"
+    else
+        # 如果目录存在，判断是否是目录
+        if [ ! -d "$dir" ]; then
+            # 如果不是目录，则删除原有的目录并创建新的目录
+            rm -f "$dir"
+            mkdir -p "$dir"
+            chmod o+rwx $dir
+            echo "Directory $dir recreated"
+        else
+            echo "Directory $dir already exists"
+        fi
+    fi
+}
+
+wait_for_mount /data 20
+wait_for_mount /persist 20
+wait_for_mount /blackbox 20
+# [DJI MODIFIED_BY_DJI_END] wait partition mounted before create dir
+
+# [DJI MODIFIED_BY_DJI_START] add product prop
+#为某个特定项目配置prop, 你需要在项目配置中将prop.conf文件拷贝到etc目录
+setprop_from_product_config() {
+    BUILD_PROP_FILE="/etc/prop.conf"
+
+    # 检查build.prop文件是否存在
+    if [ ! -f "$BUILD_PROP_FILE" ]; then
+        echo "File not found: $BUILD_PROP_FILE"
+        return 0
+    fi
+
+    # 逐行读取文件
+    while IFS= read -r line || [ -n "$line" ]
+    do
+        # 跳过空行和注释行
+        if [ -z "$line" ] || [ "${line#\#}" != "$line" ]; then
+            continue
+        fi
+
+        # 使用 setprop 设置属性
+        key=$(echo "$line" | cut -d'=' -f1)
+        value=$(echo "$line" | cut -d'=' -f2-)
+        setprop "$key" "$value"
+        echo "Set property: $key=$value"
+    done < "$BUILD_PROP_FILE"
+}
+setprop_from_product_config
+# [DJI MODIFIED_BY_DJI_END] add product prop
+
+if [[ "$soc_id" -ne "290" && "$soc_id" -ne "296" && "$soc_id" -ne "297" && "$soc_id" -ne "298" ]]; then
+
+    echo "SFS configuration started." > /dev/kmsg
+
+
+    if [ "$soc_id" -eq "322" ]; then
+        if [[ -e /data/persist && ! -e /persist ]]; then
+            ln -sf /data/persist /persist
+        fi
+    fi
+
+    if [ -e /persist ]; then
+        if [ ! -d /persist/data ]; then
+             echo "Creating /persist/data"
+             mkdir /persist/data
+        fi
+        chmod o+rwx /persist/data
+    fi
+
+    # [DJI MODIFIED_BY_DJI_START] enable dji_kmsg to save kmsg log
+    # [DJI MODIFIED_BY_DJI_START] wait partition mounted before create dir
+    create_dir /data/dji/log
+    # [DJI MODIFIED_BY_DJI_END] wait partition mounted before create dir
+    # [DJI MODIFIED_BY_DJI_START] enable dji_kmsg to save kmsg log
+
+    chmod o+rwx /data/misc
+
+    # [DJI MODIFIED_BY_DJI_START] Mount blackbox_upgrade partition
+    # mkdir /blackbox/upgrade
+    # chmod o+rwx /blackbox/upgrade
+    # [DJI MODIFIED_BY_DJI_START] Mount blackbox_upgrade partition
+
+    # [DJI MODIFIED_BY_DJI_START] enable log export to sdcard
+    # update boot index, this will be used by dji_blackbox temporarily
+    prop_boot_index=persist.sys.boot_index
+    last_boot_index=`getprop $prop_boot_index`
+    if [ "$last_boot_index" == "" ]; then
+        # record boot index for the first time
+        setprop $prop_boot_index 1
+        echo "record '$prop_boot_index' for the first time" > /dev/kmsg
+    else
+        # if property exist, update boot index
+            boot_index=`busybox expr $last_boot_index + 1`
+            setprop $prop_boot_index $boot_index
+            echo "update '$prop_boot_index': '$last_boot_index' -> '$boot_index'" > /dev/kmsg
+    fi
+
+    setprop service.adb.tcp.port 5555
+    
+    create_dir /blackbox/system
+    # [DJI MODIFIED_BY_DJI_START] uefi log to file support
+    n=16
+    LOG_DIR="/blackbox/system"
+    file_count=$(ls -l $LOG_DIR/uefi_*.log | grep -c '^-')
+    if [ $file_count -gt $n ]; then
+        rm $LOG_DIR/uefi_*.log 
+    fi
+    rm $LOG_DIR/uefi_$(($n-1)).log 
+    for i in `seq $(($n-2)) -1 0`; do  
+            mv $LOG_DIR/uefi_$i.log $LOG_DIR/uefi_$(($i+1)).log  
+    done
+
+    # [DJI MODIFIED_BY_DJI_START] uefi log to file support 2
+    mkdir /tmp/logfs
+    mount /dev/block/bootdevice/by-name/logfs /tmp/logfs
+    if [ -f "/tmp/logfs/UefiLog0.txt" ]; then
+        mv /tmp/logfs/UefiLog0.txt /blackbox/system/uefi_0.log
+    else
+        cat /dev/block/bootdevice/by-name/logfs > /blackbox/system/uefi_0.log
+    fi
+    echo 1 > /tmp/logfs/log_have_saved
+    # [DJI MODIFIED_BY_DJI_END] uefi log to file support 2
+
+    echo >> /blackbox/system/uefi_0.log
+    date >> /blackbox/system/uefi_0.log
+    # [DJI MODIFIED_BY_DJI_END] uefi log to file support
+    # [DJI MODIFIED_BY_DJI_START] enable log export to sdcard
+
+    # [DJI MODIFIED_BY_DJI_START] logcat save system log to blackbox
+    # [DJI MODIFIED_BY_DJI_START] wait partition mounted before create dir
+
+    create_dir /blackbox/system/coredump
+
+    create_dir /blackbox/system/diag_logs
+    # [DJI MODIFIED_BY_DJI_END] logcat save system log to blackbox
+
+    # [DJI MODIFIED_BY_DJI_START] enable dji_utop to save utop log
+    create_dir /blackbox/system/utop
+    # [DJI MODIFIED_BY_DJI_END] wait partition mounted before create dir
+    # [DJI MODIFIED_BY_DJI_END] enable dji_utop to save utop log
+
+    # [DJI MODIFIED_BY_DJI_START] export upgrade and gui log to sdcard
+    mkdir blackbox/gui
+    mkdir blackbox/gui/log
+    chmod o+rwx blackbox/gui/log
+    # [DJI MODIFIED_BY_DJI_END] export upgrade and gui log to sdcard
+
+    # [DJI MODIFIED_BY_DJI_START] mkdir blackbox/audio for audio dump
+    mkdir -p blackbox/audio
+    chmod o+rwx blacbox/audio
+    # [DJI MODIFIED_BY_DJI_END] mkdir blackbox/audio for audio dump
+
+    if [ ! -d /data/vendor/tzstorage ]; then
+        echo "Creating /data/vendor/tzstorage"
+        mkdir -p /data/vendor/tzstorage
+    fi
+    chmod o+rwx /data/vendor/tzstorage
+
+    echo "SFS configuration completed." > /dev/kmsg
+fi
+
+# [TC MODIFIED_BY_DJI_START] set aging_test shell scripts
+    #check if start aging test scripts
+    if [ -f /data/dji/amt/state ]; then
+        amt_state=`cat /data/dji/amt/state`
+        if [ "$amt_state"x == "aging_test"x -o "$amt_state"x == "aging_test_local"x -o "$amt_state"x == "link"x -o "$amt_state"x == "aging_test_full_cam"x ]; then
+            nice -n 10 /usr/bin/aging_test.sh
+            echo "set aging_test shell scripts" > /dev/kmsg
+        fi
+    fi
+# [TC MODIFIED_BY_DJI_END] set aging_test shell scripts
+
+# Do not enable this part, just for zkcd's paritions settings
+# [TC MODIFIED_BY_DJI_START] System-Storage-mount-userdata_a-and-userdata_b
+# if [ ! -d /mnt/media_rw/ufsa ]; then
+#      mkdir -p /mnt/media_rw/ufsa
+# fi
+
+# if [ ! -d /mnt/media_rw/ufsb ]; then
+#      mkdir -p /mnt/media_rw/ufsb
+# fi
+# mount -o rw /dev/sda9 /mnt/media_rw/ufsa
+# mount -o rw /dev/sda10 /mnt/media_rw/ufsb
+# [TC MODIFIED_BY_DJI_END] System-Storage-mount-userdata_a-and-userdata_b
+
+# [DJI MODIFIED_BY_DJI_START] mount blackbox_upgrade to sda11
+# echo "mount /blackbox/upgrade to /dev/sda11" > /dev/kmsg
+# mount -o rw /dev/sda11 /blackbox/upgrade
+# [DJI MODIFIED_BY_DJI_END] mount blackbox_upgrade to sda11
+
+# [DJI MODIFIED_BY_DJI_START] Create emulated parition and add factory_data cali in blackbox
+if [ ! -d /mnt/media_rw/emulated ]; then
+    echo "Creating /mnt/media_rw/emulated" > /dev/kmsg
+    mkdir -p /mnt/media_rw/emulated
+fi
+chmod o+rwx /mnt/media_rw/emulated
+
+# if [ ! -d /blackbox/factory_data ]; then
+#     echo "Creating /blackbox/factory_data" > /dev/kmsg
+#     mkdir -p /blackbox/factory_data
+# fi
+# chmod o+rwx /blackbox/factory_data
+
+# if [ ! -d /blackbox/cali ]; then
+#     echo "Creating /blackbox/cali" > /dev/kmsg
+#     mkdir -p /blackbox/cali
+# fi
+# chmod o+rwx /blackbox/cali
+
+# delete empty /factory_data when every startup
+# can not rm and ln in root file, cause root file property is ro
+# rm -rf /factory_data
+# ln -s /blackbox/factory_data /factory_data
+# ln -s /blackbox/cali /cali
+
+# if [ ! -d /blackbox/factory_data/camera ]; then
+#     echo "Creating /blackbox/factory_data/camera" > /dev/kmsg
+#     mkdir -p /blackbox/factory_data/camera
+# fi
+# chmod o+rwx /blackbox/factory_data/camera
+
+echo "sfs_config run over, than set date to kmsg for while(1)" > /dev/kmsg
+# [DJI MODIFIED_BY_DJI_END] Create emulated parition and add factory_data cali in blackbox
+
+# [DJI MODIFIED_BY_DJI_START] change dirty writeback to 5s
+echo 500 > /proc/sys/vm/dirty_expire_centisecs
+echo 500 > /proc/sys/vm/dirty_writeback_centisecs
+echo 5 > /proc/sys/vm/dirty_background_ratio
+# [DJI MODIFIED_BY_DJI_END] change dirty writeback to 5s
+
+# [DJI MODIFIED_BY_DJI_START] power control bringup
+mkdir /dev/thermal
+mkdir /dev/thermal/tsens
+mkdir /dev/thermal/ntc
+mkdir /dev/thermal/ntc/OQ101
+mkdir /dev/thermal/ntc/OW001
+mkdir /dev/thermal/battery
+mkdir /dev/thermal/ddr
+ln -s /sys/class/thermal/thermal_zone1/temp /dev/thermal/tsens/temp0
+ln -s /sys/class/thermal/thermal_zone2/temp /dev/thermal/tsens/temp1
+ln -s /sys/class/thermal/thermal_zone3/temp /dev/thermal/tsens/temp2
+ln -s /sys/class/thermal/thermal_zone4/temp /dev/thermal/tsens/temp3
+ln -s /sys/class/thermal/thermal_zone25/temp /dev/thermal/ddr/temp0
+ln -s /sys/class/power_supply/battery/temp /dev/thermal/battery/temp0
+ln -s /sys/devices/platform/soc/c42d000.qcom,spmi/spmi-0/0-00/c42d000.qcom,spmi:qcom,pmk8550@0:vadc@9000/iio:device2/in_temp_ac204_shelter_therm_input /dev/thermal/ntc/temp0
+ln -s /sys/devices/platform/soc/c42d000.qcom,spmi/spmi-0/0-00/c42d000.qcom,spmi:qcom,pmk8550@0:vadc@9000/iio:device0/in_temp_ac204_shelter_therm_input /dev/thermal/ntc/OQ101/temp0
+ln -s /sys/devices/platform/soc/c42d000.qcom,spmi/spmi-0/0-00/c42d000.qcom,spmi:qcom,pmk8550@0:vadc@9000/iio:device0/in_temp_pm8550_msm_therm_input /dev/thermal/ntc/OW001/temp0
+for c in /sys/class/thermal/thermal_zone*
+do
+    echo disabled > $c/mode
+done
+# [DJI MODIFIED_BY_DJI_END] power control bringup
+
+# [DJI MODIFIED_BY_DJI_START] cp ver_info.txt to blackbox
+mkdir -p /blackbox/system/
+cp -f /firmware/verinfo/ver_info.txt /blackbox/system/ver_info.txt
+# [DJI MODIFIED_BY_DJI_END] cp ver_info.txt to blackbox
+
+exit 0

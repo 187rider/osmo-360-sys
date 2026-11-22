@@ -1,0 +1,9 @@
+/dev/sda2      /persist		ext4	noatime,data=ordered,discard,noexec,nodev,nosuid,noauto_da_alloc				wait,formattable,nonremovable
+/dev/sda9      /factory_data		ext4	ro,discard,data=ordered				wait,formattable,nonremovable
+/dev/sda10      /cali		ext4	rw,discard,data=ordered				wait,formattable,nonremovable
+/dev/sda11      /blackbox		ext4	rw,discard,data=ordered				wait,formattable,nonremovable
+/dev/sda13      /overlay		ext4	noatime,nosuid,nodev,data=ordered,discard,noauto_da_alloc,noexec,inlinecrypt				wait,formattable,nonremovable
+/dev/sde56      /tmp/logfs		vfat	rw,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro				wait,formattable,nonremovable
+/dev/sde11      /dsp		ext4	noatime,data=ordered,noauto_da_alloc,discard,ro,noexec,nodev,nosuid				wait,formattable,nonremovable
+/dev/sde7      /bt_firmware		vfat	ro,nodev,noexec,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro				wait,formattable,nonremovable
+/dev/sde6      /firmware		vfat	ro,nodev,noexec,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro				wait,formattable,nonremovable

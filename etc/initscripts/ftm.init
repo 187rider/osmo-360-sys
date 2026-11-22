@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Copyright (c) 2013, 2017, 2020 Qualcomm Technologies, Inc.
+#
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+# 2013 Qualcomm Atheros, Inc.
+#
+# All Rights Reserved.
+# Qualcomm Atheros Confidential and Proprietary
+#
+
+. /lib/read_caldata_to_fs.sh
+
+raw_art_read() {
+        local mtdblock="/dev/block/bootdevice/by-name/art"
+	local apmp="/tmp"
+
+	dd if=${mtdblock} of=${apmp}/virtual_art.bin
+	echo "Copy ART caldata from ${mtdblock} to /tmp/virtual_art.bin" > /dev/console
+}
+
+retrieve_caldata() {
+	raw_art_read
+}
+
+start() {
+        local mtdblock="/dev/block/bootdevice/by-name/art"
+
+	[ ! -f "$mtdblock" ] || return
+
+	ln -s ${mtdblock} /dev/caldata
+
+	retrieve_caldata
+
+	do_load_qcn90xx_board_bin
+}
+
+stop() {
+	[ -L /dev/caldata ] && rm /dev/caldata
+}
+
+case "$1" in
+  start)
+    start
+    echo "ftm started"
+  ;;
+
+  stop)
+    stop
+    echo "ftm stopped"
+  ;;
+esac
+
+exit 0

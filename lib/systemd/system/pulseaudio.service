@@ -1,0 +1,22 @@
+# [DJI] 2024-03-24, eugene.zhang, patch id:41213, shorten sleep interval
+# [DJI] 2024-12-24, fengbin.li, patch id:55563, speed up pulseaudio startup
+# Based on the user unit
+
+[Unit]
+Description=PulseAudio Sound Service
+# [DJI MODIFIED_BY_DJI_START] speed up pulseaudio startup
+After=pdmapper.service servicemanager.service
+# [DJI MODIFIED_BY_DJI_END] speed up pulseaudio startup
+
+[Service]
+# Note that notify will only work if --daemonize=no
+Type=notify
+# [DJI MODIFIED_BY_DJI_START] shorten sleep interval
+ExecStartPre=/bin/sh -c "while [ 1 ]; do if [ -f "/sys/kernel/snd_card/card_state" ]; then chmod 0666 /sys/kernel/snd_card/card_state; exit 0; else sleep 0.05; fi done"
+# [DJI MODIFIED_BY_DJI_END] shorten sleep interval
+ExecStart=/usr/bin/pulseaudio --system --daemonize=no -vvvv
+Restart=on-failure
+StateDirectory=pulse
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+# Copyright (c) 2019 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=MSM Irqbalancer Daemon
+SourcePath=/usr/bin/msm-irqbalance
+After=systemd-modules-load.service
+
+[Service]
+RemainAfterExit=yes
+Restart=on-failure
+ExecStart=/usr/bin/msm-irqbalance -f /etc/msm_irqbalance.conf
+
+[Install]
+WantedBy=multi-user.target

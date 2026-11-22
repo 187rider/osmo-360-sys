@@ -1,0 +1,12 @@
+Package: init-mss
+Version: 2.0-r0
+Description: init-mss version 2.0-r0
+ Modem init
+Section: base
+Priority: optional
+Maintainer: OE-Core Developers <openembedded-core@lists.openembedded.org>
+License: BSD-3-Clause
+Architecture: aarch64
+OE: init-mss
+Depends: libc6 (>= 2.35)
+Source: init-mss_2.0.bb

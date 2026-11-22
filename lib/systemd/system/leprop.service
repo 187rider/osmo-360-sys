@@ -1,0 +1,13 @@
+[Unit]
+SourcePath=/sbin/leprop-service
+Description=leprop Service
+Before=persist-prop.service
+
+[Service]
+Nice=-20
+Restart=always
+ExecStartPre=+/bin/mkdir -p -m 777 /dev/socket
+ExecStart=/sbin/leprop-service
+
+[Install]
+WantedBy=local-fs.target

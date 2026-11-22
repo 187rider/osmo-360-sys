@@ -1,0 +1,26 @@
+# Copyright (c) 2022-2023 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=Qwesd Service
+SourcePath=/usr/bin/qwesd
+After=qseecomd.service
+Wants=qseecomd.service
+
+[Service]
+User=system
+Group=system
+AmbientCapabilities=CAP_BLOCK_SUSPEND CAP_WAKE_ALARM
+CapabilityBoundingSet=CAP_BLOCK_SUSPEND CAP_WAKE_ALARM
+SupplementaryGroups=radio system kmsg wakelock
+Restart=always
+RemainAfterExit=yes
+ExecStartPre=/etc/initscripts/qwes_license_store
+ExecStartPre=/etc/initscripts/create_qwes_ipc
+ExecStart=/usr/bin/qwesd
+ExecStartPost=/bin/sh -c 'echo -n \"Qwesd Service Completed\" > /dev/kmsg'
+
+[Install]
+WantedBy=multi-user.target

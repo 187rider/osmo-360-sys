@@ -1,0 +1,1 @@
+SUBSYSTEM=="bsg", KERNEL=="ufs-bsg0", OWNER="system", GROUP="disk", MODE="0660"

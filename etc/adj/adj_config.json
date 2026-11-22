@@ -1,0 +1,32 @@
+{
+    "debug":1,
+    "algo_list": ["eis_motion_estimate", "eis_motion_smooth", "eis", "color_correct","pano_local_align"],
+    "adj_configs":
+    {
+        "eis_motion_estimate":
+        {
+            "sensor": ["OV68A40"],
+            "path": ["eis_param_ov68a40_focus.json"]
+        },
+        "eis_motion_smooth":
+        {
+            "sensor": ["OV68A40"],
+            "path": ["eis_param_ov68a40_focus.json"]
+        },
+        "eis":
+        {
+            "sensor": ["OV68A40"],
+            "path": ["eis_param_ov68a40_focus.json"]
+        },
+        "color_correct":
+        {
+            "sensor": ["OV68A40"],
+            "path": ["color_correct_param_ov68a40.json"]
+        },
+        "pano_local_align":
+        {
+            "sensor": ["OV68A40"],
+            "path": ["pano_local_align_params.json"]
+        }
+    }
+}

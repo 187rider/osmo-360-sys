@@ -1,0 +1,23 @@
+# Copyright (c) 2017, 2024 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=Qseecomd Service
+SourcePath=/usr/bin/qseecomd
+After=qseecomd_init.service
+Requires= qseecomd_init.service
+
+[Service]
+User=system
+Group=system
+Restart=always
+RemainAfterExit=yes
+ExecStart=/usr/bin/qseecomd
+# CAP_SYS_RAWIO capability needed to access ufs type rpmb driver
+CapabilityBoundingSet=CAP_SYS_RAWIO
+AmbientCapabilities=CAP_SYS_RAWIO
+
+[Install]
+WantedBy=multi-user.target

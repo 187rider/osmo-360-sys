@@ -1,0 +1,18 @@
+# Copyright (c) 2019 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=zram setup service
+SourcePath=/sbin/zram-setup
+
+[Service]
+Restart=no
+RemainAfterExit=yes
+ExecStart=/sbin/zram-setup start
+ExecStop=/sbin/zram-setup stop
+Environment="SWAP_MEMTOTAL_PCT="
+
+[Install]
+WantedBy=multi-user.target

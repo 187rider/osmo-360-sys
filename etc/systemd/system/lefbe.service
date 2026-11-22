@@ -1,0 +1,18 @@
+# Copyright (c) 2022 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=File Based Encryption service FBE
+After=qseecomd.service
+Requires=qseecomd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sh -c '/sbin/lefbeservice start ext4'
+ExecStart=/bin/sh -c 'echo -n \"FBE service started\" > /dev/kmsg'
+
+[Install]
+RequiredBy=local-fs.target

@@ -1,0 +1,18 @@
+# Copyright (c) 2017, 2019, 2021 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=time serviced Service
+After=data.mount mount-data.service
+
+[Service]
+User=system
+Group=system
+SupplementaryGroups=net_raw
+Restart=always
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

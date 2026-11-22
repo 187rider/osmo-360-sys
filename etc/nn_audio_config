@@ -1,0 +1,5 @@
+# nn_audio_config, add new key value as below
+nn_input_channel=2;
+apu_delay_frame_cnt_mainmic=0;
+nn_delay_frame_cnt_mainmic=5;
+apu_delay_frame_cnt_wlmic=3;

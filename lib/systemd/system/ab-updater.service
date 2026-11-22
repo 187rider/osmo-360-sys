@@ -1,0 +1,21 @@
+# Copyright (c) 2017-2018 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+#
+
+[Unit]
+Description=AB Status Updater Service
+
+[Service]
+Restart=no
+RemainAfterExit=yes
+ExecStart=/bin/sh -c " \
+            if [ \"$(/sbin/abctl --boot_slot)\" == \"_a\" ] || \
+               [ \"$(/sbin/abctl --boot_slot)\" == \"_b\" ] || \
+               [ \"$(/sbin/abctl --boot_slot)\" == \"_c\" ] ; \
+                 then /sbin/abctl --set_success; else \
+                 /sbin/echo \"invalid boot slot\" > /dev/kmsg; exit 1; fi \
+          "
+
+[Install]
+WantedBy=sysinit.target

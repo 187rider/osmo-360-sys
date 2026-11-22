@@ -1,0 +1,50 @@
+{
+    "normal": {
+      "is_dump":0,
+      "software_param": {
+          "gdc_in_type": "QC_DSP",
+          "gdc_out_type": "QC_CPU",
+          "ica_mesh_size": {
+            "width": 67,
+            "height": 51
+          },
+          "grid_size": {
+            "width": 16,
+            "height": 16
+          },
+          "dense_flow_size": {
+            "width": 1920,
+            "height": 80
+          },
+          "of2st_ratio":4.0,
+          "pano_img_size": {
+            "width": 7680,
+            "height": 3840
+          },
+          "gdc_in_size": {
+            "width": 3840,
+            "height": 3840
+          }
+      },
+      "local_align_solver": {
+          "w_st": 8,
+          "maphex_step": 64,
+          "max_pts_num": 4096
+      },
+      "interp_smooth_sparseflow": {
+          "h_src_diffusion": 256,
+          "sparse_flow_grid_size": {
+            "width": 16,
+            "height": 16
+          }
+      },
+      "flow_sparsify_param":{
+          "cell_h":10,
+          "cell_w":10,
+          "conf_th":4,
+          "x_border":6,
+          "y_border":6,
+          "conf2feat_flt":[ 6, 12, 20, 30, 39, 42, 39, 30, 20, 12,  6]
+      }
+    }
+}
